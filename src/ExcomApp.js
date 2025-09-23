@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from './components/AuthProvider';
 import Chat from './components/Chat';
 import Settings from './components/Settings';
+import Login from './components/Login';
 import './ExcomApp.css';
 
 function ExcomApp() {
+  const { isAuthenticated, isLoading, user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('chat');
 
   // Load settings from localStorage or use defaults
@@ -23,13 +26,28 @@ function ExcomApp() {
     localStorage.setItem('excomSettings', JSON.stringify(settings));
   }, [settings]);
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
   return (
     <div className="excom-app">
       {/* Header */}
       <header className="app-header">
         <div className="app-logo">
-          <img src="/logo.png" alt="ExCom AI" className="logo-image" />
-          <span className="logo-text">ExCom AI - Tamkeen</span>
+          <img src="/logo.png" alt="excom.ai" className="logo-image" />
+          <span className="logo-text">excom.ai</span>
         </div>
         <div className="app-tabs">
           <button
@@ -43,6 +61,12 @@ function ExcomApp() {
             onClick={() => setActiveTab('settings')}
           >
             Settings
+          </button>
+        </div>
+        <div className="user-info">
+          <span className="user-name">{user?.name || user?.username}</span>
+          <button className="logout-btn" onClick={logout}>
+            Sign Out
           </button>
         </div>
       </header>

@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from './AuthProvider';
 import EnhancedMarkdown from './EnhancedMarkdown';
 import './Chat.css';
 
 function Chat({ settings }) {
+  const { getAccessToken } = useAuth();
   const [messages, setMessages] = useState([
     { id: 1, text: "Hello! I'm your AI assistant. How can I help you today?", sender: 'bot', timestamp: new Date() }
   ]);
@@ -48,12 +50,19 @@ function Chat({ settings }) {
     let accumulatedText = '';
 
     try {
+      // Get auth token if available
+      const token = await getAccessToken();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       console.log('Fetching from:', `${settings.apiUrl}/api/chat/stream`);
       const response = await fetch(`${settings.apiUrl}/api/chat/stream`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           message: currentMessage,
           conversation_history: messages.slice(-10) // Last 10 messages for context
@@ -178,12 +187,19 @@ function Chat({ settings }) {
     console.log('WHY ARE WE HERE? THIS SHOULD NOT BE CALLED!');
 
     try {
+      // Get auth token if available
+      const token = await getAccessToken();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       console.log('Fetching from NON-STREAMING:', `${settings.apiUrl}/api/chat`);
       const response = await fetch(`${settings.apiUrl}/api/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           message: currentMessage,
           conversation_history: messages.slice(-10)

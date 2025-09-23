@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
 # Import AI router
 from ai.routes import ai_router
+from auth.azure_auth import optional_auth
 
 load_dotenv()
 
@@ -24,6 +25,7 @@ app.add_middleware(
         "http://localhost:3002",
         "http://localhost:8000",
         "http://localhost:3050",
+        "https://f2cd2ae2d84a.ngrok-free.app",
         "http://localhost"
     ],
     allow_credentials=True,
