@@ -114,8 +114,8 @@
 /* Message Styles */
 .message {
   display: flex;
-  gap: 0.75rem;
   animation: slideIn 0.3s ease;
+  margin-bottom: 0.5rem;
 }
 
 @keyframes slideIn {
@@ -130,28 +130,20 @@
 }
 
 .user-message {
-  flex-direction: row-reverse;
+  justify-content: flex-end;
 }
 
-.message-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  background: rgba(0, 0, 0, 0.3);
-  flex-shrink: 0;
+.bot-message {
+  justify-content: flex-start;
 }
 
 .message-content {
-  max-width: 85%;
+  max-width: 90%;
 }
 
 .message-bubble {
   padding: 0.75rem 1rem;
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
   color: #ffffff;
   line-height: 1.6;
@@ -162,7 +154,7 @@
 
 @media (min-width: 769px) {
   .message-content {
-    max-width: 70%;
+    max-width: 85%;
   }
 
   .message-bubble {
@@ -172,27 +164,36 @@
 }
 
 .user-message .message-bubble {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-top-right-radius: 4px;
+  color: #e0e7ff;
 }
 
 .bot-message .message-bubble {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
   border-top-left-radius: 4px;
+  color: #ffffff;
 }
 
 .message.error .message-bubble {
-  background: rgba(255, 107, 107, 0.2);
-  border: 1px solid rgba(255, 107, 107, 0.3);
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fecaca;
 }
 
 .message-time {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.4);
   margin-top: 0.25rem;
-  text-align: right;
 }
 
 .user-message .message-time {
+  text-align: right;
+}
+
+.bot-message .message-time {
   text-align: left;
 }
 
@@ -202,14 +203,16 @@
 .message-bubble h3 {
   margin-top: 1rem;
   margin-bottom: 0.5rem;
+  font-weight: 600;
 }
 
 .message-bubble pre {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.3);
   padding: 0.75rem;
   border-radius: 8px;
   overflow-x: auto;
   margin: 0.5rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .message-bubble code {
@@ -222,6 +225,7 @@
 .message-bubble pre code {
   background: none;
   padding: 0;
+  color: #e0e7ff;
 }
 
 .message-bubble ul,
@@ -230,7 +234,7 @@
 }
 
 .message-bubble a {
-  color: #81d4fa;
+  color: #60a5fa;
   text-decoration: underline;
 }
 
@@ -574,13 +578,7 @@
 
   /* Better message spacing on mobile */
   .message {
-    gap: 0.5rem;
-  }
-
-  .message-avatar {
-    width: 28px;
-    height: 28px;
-    font-size: 1rem;
+    margin-bottom: 0.4rem;
   }
 
   /* Adjust system messages for mobile */
@@ -628,12 +626,15 @@
 }
 
 .bot-message .enhanced-markdown .inline-code {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #ffd700;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #86efac;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
 }
 
 .bot-message .enhanced-markdown .markdown-link {
-  color: #4a9eff;
+  color: #60a5fa;
+  text-decoration: underline;
 }
 
 .bot-message .enhanced-markdown .markdown-blockquote {

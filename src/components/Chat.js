@@ -327,9 +327,6 @@ function Chat({ settings }) {
               key={message.id}
               className={`message ${message.sender === 'user' ? 'user-message' : 'bot-message'} ${message.isError ? 'error' : ''}`}
             >
-              <div className="message-avatar">
-                {message.sender === 'user' ? '👤' : '🤖'}
-              </div>
               <div className="message-content">
                 <div className="message-bubble">
                   {messageContent}
