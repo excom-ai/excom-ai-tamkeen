@@ -9,6 +9,7 @@ function ExcomApp() {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('chat');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // Load settings from localStorage or use defaults
   const [settings, setSettings] = useState(() => {
@@ -33,13 +34,22 @@ function ExcomApp() {
       if (showUserMenu && !event.target.closest('.user-info')) {
         setShowUserMenu(false);
       }
+      if (showMobileMenu && !event.target.closest('.mobile-menu-btn') && !event.target.closest('.mobile-nav')) {
+        setShowMobileMenu(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showUserMenu]);
+  }, [showUserMenu, showMobileMenu]);
+
+  // Handle tab change
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setShowMobileMenu(false);
+  };
 
   // Show loading state
   if (isLoading) {
@@ -60,6 +70,11 @@ function ExcomApp() {
     <div className="excom-app">
       {/* Header */}
       <header className="app-header">
+        <button className="mobile-menu-btn" onClick={() => setShowMobileMenu(!showMobileMenu)}>
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
         <div className="app-logo">
           <img src="/logo.png" alt="excom.ai" className="logo-image" />
           <span className="logo-text">excom.ai</span>
@@ -67,13 +82,13 @@ function ExcomApp() {
         <div className="app-tabs">
           <button
             className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
-            onClick={() => setActiveTab('chat')}
+            onClick={() => handleTabChange('chat')}
           >
             Chat
           </button>
           <button
             className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleTabChange('settings')}
           >
             Settings
           </button>
@@ -97,6 +112,31 @@ function ExcomApp() {
           )}
         </div>
       </header>
+
+      {/* Mobile Navigation */}
+      <div className={`mobile-nav ${showMobileMenu ? 'open' : ''}`}>
+        <div className="mobile-nav-header">
+          <div className="app-logo">
+            <img src="/logo.png" alt="excom.ai" className="logo-image" />
+            <span className="logo-text">excom.ai</span>
+          </div>
+        </div>
+        <div className="mobile-nav-tabs">
+          <button
+            className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
+            onClick={() => handleTabChange('chat')}
+          >
+            Chat
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => handleTabChange('settings')}
+          >
+            Settings
+          </button>
+        </div>
+      </div>
+      {showMobileMenu && <div className="mobile-nav-overlay show" onClick={() => setShowMobileMenu(false)} />}
 
       {/* Content */}
       <main className="app-content">

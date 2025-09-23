@@ -151,4 +151,4 @@ const HtmlPreview = ({ htmlContent }) => {
   );
 };
 
-export default HtmlPreview;
+export default React.memo(HtmlPreview);

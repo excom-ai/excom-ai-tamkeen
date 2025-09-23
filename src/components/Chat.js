@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthProvider';
 import EnhancedMarkdown from './EnhancedMarkdown';
 import './Chat.css';
@@ -59,8 +59,10 @@ function Chat({ settings }) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      console.log('Fetching from:', `${settings.apiUrl}/api/chat/stream`);
-      const response = await fetch(`${settings.apiUrl}/api/chat/stream`, {
+      // Use relative URL in production, full URL in development
+      const apiUrl = process.env.NODE_ENV === 'production' ? '' : settings.apiUrl;
+      console.log('Fetching from:', `${apiUrl}/api/chat/stream`);
+      const response = await fetch(`${apiUrl}/api/chat/stream`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -197,7 +199,8 @@ function Chat({ settings }) {
       }
 
       console.log('Fetching from NON-STREAMING:', `${settings.apiUrl}/api/chat`);
-      const response = await fetch(`${settings.apiUrl}/api/chat`, {
+      const apiUrl = process.env.NODE_ENV === 'production' ? '' : settings.apiUrl;
+      const response = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -230,7 +233,7 @@ function Chat({ settings }) {
     }
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!inputMessage.trim() || isTyping) return;
 
     const userMessage = {
@@ -264,23 +267,23 @@ function Chat({ settings }) {
     } finally {
       setIsTyping(false);
     }
-  };
+  }, [inputMessage, isTyping, messages, getAccessToken, settings]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
-  };
+  }, [handleSendMessage]);
 
-  const clearChat = () => {
+  const clearChat = useCallback(() => {
     setMessages([{
       id: 1,
       text: "Chat cleared. How can I help you?",
       sender: 'bot',
       timestamp: new Date()
     }]);
-  };
+  }, []);
 
   return (
     <div className="chat-container">
@@ -292,8 +295,24 @@ function Chat({ settings }) {
       </div>
 
       <div className="messages-area">
-        {messages.map(message => (
-          message.sender === 'system' ? (
+        {messages.map(message => {
+          const messageContent = message.sender === 'bot' ? (
+            <React.Fragment key={`content-${message.id}`}>
+              <EnhancedMarkdown content={message.text} />
+              {message.isProcessing && (
+                <div className="processing-indicator">
+                  <span className="processing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+                  <span className="processing-text">Processing {message.processingTool || 'tool'}...</span>
+                </div>
+              )}
+            </React.Fragment>
+          ) : message.text;
+
+          return message.sender === 'system' ? (
             <div key={message.id} className="system-message" data-type={message.messageType || 'status'}>
               <div className="system-message-content">
                 {message.messageType === 'tool_result' || message.messageType === 'tool_error' ? (
@@ -313,31 +332,15 @@ function Chat({ settings }) {
               </div>
               <div className="message-content">
                 <div className="message-bubble">
-                  {message.sender === 'bot' ? (
-                    <>
-                      <EnhancedMarkdown content={message.text} />
-                      {message.isProcessing && (
-                        <div className="processing-indicator">
-                          <span className="processing-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                          </span>
-                          <span className="processing-text">Processing {message.processingTool || 'tool'}...</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    message.text
-                  )}
+                  {messageContent}
                 </div>
                 <div className="message-time">
                   {formatTime(message.timestamp)}
                 </div>
               </div>
             </div>
-          )
-        ))}
+          );
+        })}
         {isTyping && !currentAbortController && (
           <div className="typing-indicator">
             <div className="typing-dot"></div>
@@ -353,7 +356,7 @@ function Chat({ settings }) {
           ref={inputRef}
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
           placeholder="Type your message..."
           className="message-input"
           rows="3"
@@ -369,7 +372,7 @@ function Chat({ settings }) {
               onClick={handleSendMessage}
               disabled={!inputMessage.trim() || isTyping}
             >
-              {isTyping ? '⏳' : '📤'} Go
+              {isTyping ? '⏳' : '📤'} Send
             </button>
           )}
         </div>

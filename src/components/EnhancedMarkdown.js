@@ -219,4 +219,4 @@ const EnhancedMarkdown = ({ content, className = '' }) => {
   );
 };
 
-export default EnhancedMarkdown;
+export default React.memo(EnhancedMarkdown);
