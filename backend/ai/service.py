@@ -311,24 +311,26 @@ class AIService:
                     # Send reasoning about what we're about to do
                     tool_names = [tc.get('name') for tc in response.tool_calls]
 
-                    # Provide contextual reasoning as normal AI response text
-                    reasoning_text = ""
-                    if 'get_data_status' in tool_names:
-                        reasoning_text = "Let me check the current status of the cached data first...\n\n"
-                    elif 'query_fresh_service_tickets' in tool_names:
-                        reasoning_text = "I'll query the Freshservice tickets to get the information you need...\n\n"
-                    elif 'query_jira_demands' in tool_names:
-                        reasoning_text = "Let me check the JIRA demands for you...\n\n"
-                    elif num_tools > 1:
-                        reasoning_text = f"I need to use {num_tools} tools to get complete information...\n\n"
-                    else:
-                        reasoning_text = "Let me gather the information...\n\n"
+                    # Only show intro message on first round when we have new tools
+                    if round == 0 and total_tools_called == num_tools:
+                        # First time using tools - give a brief intro
+                        if 'query_fresh_service_tickets' in tool_names and 'query_jira_demands' in tool_names:
+                            reasoning_text = "I'll check both Freshservice and JIRA for you...\n\n"
+                        elif 'query_fresh_service_tickets' in tool_names:
+                            reasoning_text = "I'll check Freshservice for you...\n\n"
+                        elif 'query_jira_demands' in tool_names:
+                            reasoning_text = "I'll check JIRA for you...\n\n"
+                        elif 'get_data_status' in tool_names:
+                            reasoning_text = "Let me check the data status...\n\n"
+                        else:
+                            reasoning_text = ""
 
-                    # Stream the reasoning as normal bot content
-                    for i in range(0, len(reasoning_text), 4):
-                        chunk = reasoning_text[i:i+4]
-                        yield json.dumps({'type': 'content', 'content': chunk})
-                        await asyncio.sleep(0.015)
+                        # Stream the intro only once
+                        if reasoning_text:
+                            for i in range(0, len(reasoning_text), 4):
+                                chunk = reasoning_text[i:i+4]
+                                yield json.dumps({'type': 'content', 'content': chunk})
+                                await asyncio.sleep(0.015)
 
                     logger.info(f"\n🔧 Processing {num_tools} tool calls")
 

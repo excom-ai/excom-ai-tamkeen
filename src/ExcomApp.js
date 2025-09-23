@@ -28,7 +28,8 @@ function ExcomApp() {
       {/* Header */}
       <header className="app-header">
         <div className="app-logo">
-          <span className="logo-text">excom.ai</span>
+          <img src="/logo.png" alt="ExCom AI" className="logo-image" />
+          <span className="logo-text">ExCom AI - Tamkeen</span>
         </div>
         <div className="app-tabs">
           <button

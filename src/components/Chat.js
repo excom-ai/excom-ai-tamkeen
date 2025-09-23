@@ -9,6 +9,8 @@ function Chat({ settings }) {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [currentAbortController, setCurrentAbortController] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingTool, setProcessingTool] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -105,23 +107,27 @@ function Chat({ settings }) {
                 const toolName = parsed.tool || 'tool';
                 const toolInfo = `\n\n🔧 *Using ${toolName}...*\n`;
                 accumulatedText += toolInfo;
+                setIsProcessing(true);
+                setProcessingTool(toolName);
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, text: accumulatedText }
+                    ? { ...msg, text: accumulatedText, isProcessing: true, processingTool: toolName }
                     : msg
                 ));
               } else if (parsed.type === 'tool_result') {
+                // Tool completed - stop processing indicator
+                setIsProcessing(false);
+                setProcessingTool('');
                 // Only show errors, skip successful results
                 if (parsed.is_error) {
                   const errorInfo = `\n❌ Tool error: ${parsed.content}\n`;
                   accumulatedText += errorInfo;
-                  setMessages(prev => prev.map(msg =>
-                    msg.id === botMessageId
-                      ? { ...msg, text: accumulatedText }
-                      : msg
-                  ));
                 }
-                // For successful results, don't add anything to the message
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, text: accumulatedText, isProcessing: false, processingTool: '' }
+                    : msg
+                ));
               } else if (parsed.type === 'thinking' || parsed.type === 'reasoning' ||
                          parsed.type === 'tool_complete' || parsed.type === 'status') {
                 // Skip these - don't display them at all
@@ -129,6 +135,8 @@ function Chat({ settings }) {
                 throw new Error(parsed.content);
               } else if (parsed.type === 'done') {
                 // Stream complete - break out of all loops
+                setIsProcessing(false);
+                setProcessingTool('');
                 console.log('Stream completed - received done signal');
                 return; // Exit the entire streaming function
               }
@@ -261,7 +269,7 @@ function Chat({ settings }) {
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <span className="chat-title">AI Assistant</span>
+        <span className="chat-title">ExCom AI Assistant</span>
         <button className="clear-btn" onClick={clearChat}>
           🗑️ Clear
         </button>
@@ -290,7 +298,19 @@ function Chat({ settings }) {
               <div className="message-content">
                 <div className="message-bubble">
                   {message.sender === 'bot' ? (
-                    <EnhancedMarkdown content={message.text} />
+                    <>
+                      <EnhancedMarkdown content={message.text} />
+                      {message.isProcessing && (
+                        <div className="processing-indicator">
+                          <span className="processing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                          </span>
+                          <span className="processing-text">Processing {message.processingTool || 'tool'}...</span>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     message.text
                   )}
