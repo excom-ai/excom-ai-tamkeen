@@ -1,0 +1,44 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: excom-ai-backend
+    ports:
+      - "9000:9000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2}
+      - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT}
+      - JIRA_SERVER=${JIRA_SERVER}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - JIRA_JQL=${JIRA_JQL}
+      - FRESHSERVICE_DOMAIN=${FRESHSERVICE_DOMAIN}
+      - FRESHSERVICE_API_KEY=${FRESHSERVICE_API_KEY}
+    volumes:
+      - ./backend:/app
+    networks:
+      - excom-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: excom-ai-frontend
+    ports:
+      - "3050:3000"
+    environment:
+      - REACT_APP_API_URL=http://backend:9000
+    depends_on:
+      - backend
+    networks:
+      - excom-network
+    restart: unless-stopped
+
+networks:
+  excom-network:
+    driver: bridge
