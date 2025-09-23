@@ -8,6 +8,7 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import HtmlPreview from './HtmlPreview';
 import 'katex/dist/katex.min.css';
 import './EnhancedMarkdown.css';
 
@@ -16,16 +17,68 @@ const EnhancedMarkdown = ({ content, className = '' }) => {
     code({ node, inline, className, children, ...props }) {
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
+      const codeContent = String(children).replace(/\n$/, '');
 
-      if (!inline && language) {
+      // Debug logging
+      console.log('Code block detected:', { language, className, inline, contentPreview: codeContent.substring(0, 50) });
+
+      // Handle non-inline code blocks
+      if (!inline) {
+        // Check if it's HTML code block by language tag or content
+        const isHtmlByLanguage = language && (language.toLowerCase() === 'html' || language.toLowerCase() === 'htm');
+        const isHtmlByContent = !language && codeContent.trim().match(/^<!DOCTYPE html>|^<html|^<\!--.*-->/i);
+
+        if (isHtmlByLanguage || isHtmlByContent) {
+          console.log('HTML block detected, rendering with HtmlPreview');
+          return <HtmlPreview htmlContent={codeContent} />;
+        }
+
+        // If there's a language specified, use syntax highlighter
+        if (language) {
+          return (
+            <div className="code-block-wrapper">
+              <div className="code-block-header">
+                <span className="code-language">{language}</span>
+                <button
+                  className="copy-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(codeContent);
+                    const btn = document.activeElement;
+                    btn.textContent = '✓ Copied';
+                    setTimeout(() => {
+                      btn.textContent = 'Copy';
+                    }, 2000);
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+              <SyntaxHighlighter
+                style={oneDark}
+                language={language}
+                PreTag="div"
+                customStyle={{
+                  margin: 0,
+                  borderRadius: '0 0 8px 8px',
+                  fontSize: '14px'
+                }}
+                {...props}
+              >
+                {codeContent}
+              </SyntaxHighlighter>
+            </div>
+          );
+        }
+
+        // For code blocks without language, just show as plain code
         return (
           <div className="code-block-wrapper">
             <div className="code-block-header">
-              <span className="code-language">{language}</span>
+              <span className="code-language">plaintext</span>
               <button
                 className="copy-button"
                 onClick={() => {
-                  navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+                  navigator.clipboard.writeText(codeContent);
                   const btn = document.activeElement;
                   btn.textContent = '✓ Copied';
                   setTimeout(() => {
@@ -36,19 +89,17 @@ const EnhancedMarkdown = ({ content, className = '' }) => {
                 Copy
               </button>
             </div>
-            <SyntaxHighlighter
-              style={oneDark}
-              language={language}
-              PreTag="div"
-              customStyle={{
-                margin: 0,
-                borderRadius: '0 0 8px 8px',
-                fontSize: '14px'
-              }}
-              {...props}
-            >
-              {String(children).replace(/\n$/, '')}
-            </SyntaxHighlighter>
+            <pre style={{
+              margin: 0,
+              padding: '16px',
+              backgroundColor: '#282c34',
+              color: '#abb2bf',
+              borderRadius: '0 0 8px 8px',
+              fontSize: '14px',
+              overflow: 'auto'
+            }}>
+              <code>{codeContent}</code>
+            </pre>
           </div>
         );
       }

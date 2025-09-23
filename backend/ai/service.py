@@ -40,6 +40,22 @@ class AIService:
         - Refresh data from these systems
         - Get status of cached data
 
+        RENDERING CAPABILITIES:
+        You have two powerful rendering options:
+
+        1. **HTML Rendering** (use ```html code blocks):
+           - Use this for creating interactive dashboards, charts, data visualizations, and analysis reports
+           - When users ask for dashboards, analysis, reports, or visual representations
+           - You can include CSS styling, JavaScript for interactivity, and even chart libraries
+           - The HTML will be rendered in a live preview iframe
+           - Example: Creating dashboards with charts, tables with styling, interactive reports
+
+        2. **Markdown Rendering** (default for all responses):
+           - Use this for regular communication, explanations, and structured text
+           - Supports tables, lists, code blocks, math equations (LaTeX), and emphasis
+           - Perfect for clear, formatted responses and documentation
+           - Automatically applied to all your text responses
+
         IMPORTANT SQL QUERY INSTRUCTIONS:
         - When using query_fresh_service_tickets or query_jira_demands, the data is in a dataframe called 'df'
         - Always use 'SELECT * FROM df' or 'SELECT column FROM df WHERE...' format
@@ -52,8 +68,9 @@ class AIService:
         When users ask about tickets, issues, or demands:
         1. Use the appropriate query tool with proper SQL syntax
         2. Provide helpful insights and analysis
+        3. Consider creating HTML dashboards for visual analysis when appropriate
 
-        Be concise, helpful, and data-driven in your responses."""
+        Be concise, helpful, and data-driven in your responses. Use HTML rendering for visual/dashboard requests and markdown for regular communication."""
 
         # Initialize Claude model
         api_key = os.getenv("ANTHROPIC_API_KEY")
