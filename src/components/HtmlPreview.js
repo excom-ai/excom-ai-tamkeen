@@ -47,6 +47,18 @@ const HtmlPreview = ({ htmlContent, height = '400px' }) => {
       iframeDoc.write(fullHtml);
       iframeDoc.close();
 
+      // Prevent navigation within iframe
+      iframeDoc.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+          e.preventDefault();
+          e.stopPropagation();
+          // Optionally open in new tab if it's an external link
+          if (e.target.href && e.target.href.startsWith('http')) {
+            window.open(e.target.href, '_blank');
+          }
+        }
+      });
+
       // Adjust iframe height based on content
       const adjustHeight = () => {
         try {
@@ -154,7 +166,7 @@ const HtmlPreview = ({ htmlContent, height = '400px' }) => {
             ref={iframeRef}
             className="html-preview-iframe"
             title="HTML Preview"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts"
             style={{ height: isExpanded ? 'auto' : height }}
           />
         </div>
