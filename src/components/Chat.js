@@ -36,6 +36,9 @@ function Chat({ settings }) {
   };
 
   const handleStreamedResponse = async (currentMessage) => {
+    console.log('=== HANDLESTREAMEDRESPONSE CALLED ===');
+    console.log('Using streaming endpoint!');
+
     const abortController = new AbortController();
     setCurrentAbortController(abortController);
 
@@ -43,6 +46,7 @@ function Chat({ settings }) {
     let accumulatedText = '';
 
     try {
+      console.log('Fetching from:', `${settings.apiUrl}/api/chat/stream`);
       const response = await fetch(`${settings.apiUrl}/api/chat/stream`, {
         method: 'POST',
         headers: {
@@ -96,55 +100,37 @@ function Chat({ settings }) {
                     ? { ...msg, text: accumulatedText }
                     : msg
                 ));
-              } else if (parsed.type === 'thinking' || parsed.type === 'reasoning' ||
-                         parsed.type === 'tool_call' || parsed.type === 'tool_result' ||
-                         parsed.type === 'tool_complete' || parsed.type === 'status') {
-                // Show various status messages
-                let displayText = parsed.content;
-                let messageType = 'status';
-
-                if (parsed.type === 'tool_call') {
-                  // Format tool call with name
-                  displayText = parsed.content;
-                  if (parsed.tool) {
-                    displayText += ` → ${parsed.tool}()`;
-                  }
-                  messageType = 'tool_call';
-                } else if (parsed.type === 'tool_result') {
-                  // Show tool result with full JSON
-                  displayText = parsed.content;
-                  if (parsed.result) {
-                    // Ensure we show the complete result, not truncated
-                    const fullResult = typeof parsed.result === 'string'
-                      ? parsed.result
-                      : JSON.stringify(parsed.result, null, 2);
-                    displayText += `\n\`\`\`json\n${fullResult}\n\`\`\``;
-                  }
-                  messageType = parsed.is_error ? 'tool_error' : 'tool_result';
-                } else if (parsed.type === 'thinking') {
-                  messageType = 'thinking';
-                } else if (parsed.type === 'reasoning') {
-                  messageType = 'reasoning';
-                } else if (parsed.type === 'tool_complete') {
-                  messageType = 'tool_complete';
+              } else if (parsed.type === 'tool_call') {
+                // Add condensed tool call info inline
+                const toolName = parsed.tool || 'tool';
+                const toolInfo = `\n\n🔧 *Using ${toolName}...*\n`;
+                accumulatedText += toolInfo;
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, text: accumulatedText }
+                    : msg
+                ));
+              } else if (parsed.type === 'tool_result') {
+                // Only show errors, skip successful results
+                if (parsed.is_error) {
+                  const errorInfo = `\n❌ Tool error: ${parsed.content}\n`;
+                  accumulatedText += errorInfo;
+                  setMessages(prev => prev.map(msg =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: accumulatedText }
+                      : msg
+                  ));
                 }
-
-                setMessages(prev => [...prev.filter(m => m.id !== botMessageId), {
-                  id: Date.now() + Math.random(),
-                  text: displayText,
-                  sender: 'system',
-                  messageType: messageType,
-                  timestamp: new Date()
-                }, {
-                  id: botMessageId,
-                  text: accumulatedText,
-                  sender: 'bot',
-                  timestamp: new Date()
-                }]);
+                // For successful results, don't add anything to the message
+              } else if (parsed.type === 'thinking' || parsed.type === 'reasoning' ||
+                         parsed.type === 'tool_complete' || parsed.type === 'status') {
+                // Skip these - don't display them at all
               } else if (parsed.type === 'error') {
                 throw new Error(parsed.content);
               } else if (parsed.type === 'done') {
-                // Stream complete - no action needed
+                // Stream complete - break out of all loops
+                console.log('Stream completed - received done signal');
+                return; // Exit the entire streaming function
               }
             } catch (e) {
               if (e instanceof SyntaxError) {
@@ -180,7 +166,11 @@ function Chat({ settings }) {
   };
 
   const handleNormalResponse = async (currentMessage) => {
+    console.log('=== HANDLENORMALRESPONSE CALLED ===');
+    console.log('WHY ARE WE HERE? THIS SHOULD NOT BE CALLED!');
+
     try {
+      console.log('Fetching from NON-STREAMING:', `${settings.apiUrl}/api/chat`);
       const response = await fetch(`${settings.apiUrl}/api/chat`, {
         method: 'POST',
         headers: {
@@ -230,8 +220,19 @@ function Chat({ settings }) {
     setInputMessage('');
     setIsTyping(true);
 
+    // Debug logging
+    console.log('Settings:', settings);
+    console.log('Streaming enabled?', settings.streaming);
+
+    // FORCE STREAMING TO TRUE FOR NOW
+    const forceStreaming = true;
+    console.log('FORCING STREAMING:', forceStreaming);
+    console.log('Using endpoint:', forceStreaming ? '/api/chat/stream' : '/api/chat');
+
+    // Debug message removed - streaming is always enabled
+
     try {
-      if (settings.streaming) {
+      if (forceStreaming) {  // Use forced value
         await handleStreamedResponse(inputMessage);
       } else {
         await handleNormalResponse(inputMessage);

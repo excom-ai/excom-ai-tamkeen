@@ -14,7 +14,7 @@ function ExcomApp() {
     }
     return {
       apiUrl: 'http://localhost:9000',
-      streaming: false  // Disabled to enable tool usage
+      streaming: true  // Enable streaming for real-time responses
     };
   });
 

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -36,6 +37,8 @@ async def chat_with_ai_stream(request: ChatRequest):
             ):
                 # Chunk is already JSON string from service
                 yield f"data: {chunk}\n\n"
+                # Force flush for immediate delivery
+                await asyncio.sleep(0)  # Yield control to ensure data is sent
 
             # Send completion signal
             yield "data: [DONE]\n\n"

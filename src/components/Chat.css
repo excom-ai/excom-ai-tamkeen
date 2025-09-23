@@ -212,6 +212,7 @@
   background: rgba(100, 100, 255, 0.1);
   border-color: rgba(100, 100, 255, 0.3);
   color: rgba(150, 150, 255, 0.9);
+  animation: pulse 2s infinite;
 }
 
 .system-message[data-type="reasoning"] .system-message-content {
@@ -219,6 +220,12 @@
   border-color: rgba(150, 100, 255, 0.3);
   color: rgba(180, 150, 255, 0.9);
   font-style: normal;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
 }
 
 .system-message[data-type="tool_call"] .system-message-content {
@@ -229,6 +236,24 @@
   font-style: normal;
   text-align: left;
   max-width: 85%;
+  position: relative;
+  overflow: hidden;
+}
+
+.system-message[data-type="tool_call"] .system-message-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(50, 200, 255, 0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
 }
 
 .system-message[data-type="tool_complete"] .system-message-content {

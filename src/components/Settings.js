@@ -27,7 +27,7 @@ function Settings({ settings, setSettings }) {
   const resetToDefaults = () => {
     const defaults = {
       apiUrl: 'http://localhost:9000',
-      streaming: false  // Disabled to enable tool usage
+      streaming: true  // Enable streaming by default
     };
     setSettings(defaults);
   };
@@ -65,7 +65,7 @@ function Settings({ settings, setSettings }) {
             <span className="toggle-slider"></span>
             <span className="toggle-label">Enable Streaming Responses</span>
             <small style={{ display: 'block', marginTop: '8px', opacity: 0.7 }}>
-              Note: Disable streaming to enable tool usage (JIRA/Freshservice queries)
+              Streaming provides real-time responses with tool usage visibility
             </small>
           </label>
         </div>

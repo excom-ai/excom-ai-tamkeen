@@ -84,13 +84,9 @@ class AIService:
             max_tokens=16384,  # Max output tokens for large responses
             max_retries=3,  # Number of retry attempts on failure
             timeout=240,  # Increased timeout to 4 minutes for complex queries
-            # Additional parameters you can adjust:
-            streaming=False,  # Set to True for streaming responses (faster perceived response)
+            streaming=True,  # Enable streaming for faster perceived response
             default_request_timeout=240,  # Default timeout for requests
-            # top_p=0.9,  # Nucleus sampling (alternative to temperature)
-            # top_k=40,  # Top-k sampling (limits vocabulary)
-            # stop_sequences=[],  # Sequences that stop generation
-            verbose=True,  # Disable verbose HTTP logging
+            verbose=False,  # Reduce verbose logging
         )
 
         # Get MCP tools and create tool map
@@ -287,6 +283,10 @@ class AIService:
 
             messages.append(HumanMessage(content=message))
 
+            # Stream reasoning first
+            yield json.dumps({'type': 'reasoning', 'content': '🤔 Analyzing your request...'})
+            await asyncio.sleep(0.5)
+
             # Process tool calls first (non-streaming)
             max_rounds = 10
             total_tools_called = 0
@@ -296,10 +296,9 @@ class AIService:
                 logger.info(f"🤖 STREAMING - ROUND {round + 1}")
                 logger.info(f"{'='*60}")
 
-                # Skip thinking status - let natural AI response flow
-
                 # Get initial response to check for tool calls
-                response = await self.llm_with_tools.ainvoke(messages)
+                # Use non-streaming for tool detection phase
+                response = await self.llm_with_tools.with_config({"streaming": False}).ainvoke(messages)
 
                 # Always append the response to maintain conversation flow
                 messages.append(response)
@@ -415,13 +414,7 @@ class AIService:
                         'content': f'Processed {num_tools} tool{"s" if num_tools > 1 else ""}'
                     })
 
-                    # Add reasoning about what we'll do next as normal content
-                    if round < max_rounds - 1:  # Not the last possible round
-                        next_text = "\nAnalyzing the results...\n\n"
-                        for i in range(0, len(next_text), 4):
-                            chunk = next_text[i:i+4]
-                            yield json.dumps({'type': 'content', 'content': chunk})
-                            await asyncio.sleep(0.015)
+                    # Don't add any status text - just continue to next round
 
                     # Add results to messages
                     for tool_call, result in zip(response.tool_calls, tool_results):
@@ -432,28 +425,43 @@ class AIService:
                             )
                         )
 
-                    await asyncio.sleep(0.5)
-                else:
-                    # No more tools - the response already has the final content
-                    logger.info(
-                        f"✨ Getting final response after {total_tools_called} tool calls"
-                    )
+                    # Don't stream any status message here - just continue
 
-                    # The current response already has the final content
+                    # Continue to next round to get the final response from LLM
+                    continue  # This will go back to the loop and get the final response
+                else:
+                    # No more tools - stream the final response
+                    logger.info(f"✨ Final response after {total_tools_called} tool calls")
+
+                    # We have the response already, let's stream it
                     final_content = response.content
 
-                    logger.info(f"✨ Streaming final content: {str(final_content)[:200]}...")
-
-                    # Now stream the final content character by character
-                    if isinstance(final_content, str):
-                        # Stream the text in chunks
-                        chunk_size = 20  # Characters per chunk
-                        for i in range(0, len(final_content), chunk_size):
-                            chunk = final_content[i:i+chunk_size]
+                    # Handle different content formats
+                    if isinstance(final_content, list):
+                        # Handle list of content blocks
+                        for block in final_content:
+                            if isinstance(block, dict) and block.get('type') == 'text':
+                                text_content = block.get('text', '')
+                                if text_content:
+                                    # Stream in chunks for natural effect
+                                    for i in range(0, len(text_content), 10):
+                                        chunk = text_content[i:i+10]
+                                        yield json.dumps({"type": "content", "content": chunk})
+                                        await asyncio.sleep(0.01)
+                            elif isinstance(block, str):
+                                if block:
+                                    for i in range(0, len(block), 10):
+                                        chunk = block[i:i+10]
+                                        yield json.dumps({"type": "content", "content": chunk})
+                                        await asyncio.sleep(0.01)
+                    elif isinstance(final_content, str) and final_content:
+                        # Stream string content in chunks
+                        for i in range(0, len(final_content), 10):
+                            chunk = final_content[i:i+10]
                             yield json.dumps({"type": "content", "content": chunk})
-                            await asyncio.sleep(0.01)  # Small delay for streaming effect
+                            await asyncio.sleep(0.01)
                     else:
-                        # If content is not a string, send it as is
+                        # Fallback - just send whatever we have
                         yield json.dumps({"type": "content", "content": str(final_content)})
 
                     # Send completion signal

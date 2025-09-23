@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enable Streaming</title>
+</head>
+<body>
+    <h1>Enable Streaming</h1>
+    <p>This page will enable streaming in your ExCom AI app.</p>
+    <button onclick="enableStreaming()">Enable Streaming</button>
+    <div id="status"></div>
+
+    <script>
+        function enableStreaming() {
+            // Get current settings or use defaults
+            let settings = localStorage.getItem('excomSettings');
+            if (settings) {
+                settings = JSON.parse(settings);
+            } else {
+                settings = {
+                    apiUrl: 'http://localhost:9000'
+                };
+            }
+
+            // Enable streaming
+            settings.streaming = true;
+
+            // Save back to localStorage
+            localStorage.setItem('excomSettings', JSON.stringify(settings));
+
+            document.getElementById('status').innerHTML = `
+                <p style="color: green;">✅ Streaming enabled!</p>
+                <p>Current settings: ${JSON.stringify(settings, null, 2)}</p>
+                <p><a href="/">Go back to the app</a></p>
+            `;
+        }
+    </script>
+</body>
+</html>
