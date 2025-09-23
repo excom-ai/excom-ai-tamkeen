@@ -28,9 +28,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        - REACT_APP_AZURE_CLIENT_ID=${REACT_APP_AZURE_CLIENT_ID}
+        - REACT_APP_AZURE_TENANT_ID=${REACT_APP_AZURE_TENANT_ID}
+        - REACT_APP_REDIRECT_URI=${REACT_APP_REDIRECT_URI:-http://localhost:8000}
     container_name: excom-ai-frontend
     ports:
-      - "3050:3000"
+      - "8000:3000"
     environment:
       - REACT_APP_API_URL=http://backend:9000
     depends_on:

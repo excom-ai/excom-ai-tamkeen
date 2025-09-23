@@ -1,6 +1,6 @@
 {
   "name": "excom-ai-tamkeen",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "dependencies": {
     "@azure/msal-browser": "^3.10.0",

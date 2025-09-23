@@ -8,9 +8,20 @@ COPY package*.json ./
 # Install dependencies with legacy peer deps for React 19 compatibility
 RUN npm install --legacy-peer-deps
 
+# Copy .env file if it exists (for build-time env vars)
+COPY .env* ./
+
 # Copy source code
 COPY public/ ./public/
 COPY src/ ./src/
+
+# Accept build arguments and set them as environment variables for the build
+ARG REACT_APP_AZURE_CLIENT_ID
+ARG REACT_APP_AZURE_TENANT_ID
+ARG REACT_APP_REDIRECT_URI
+ENV REACT_APP_AZURE_CLIENT_ID=$REACT_APP_AZURE_CLIENT_ID
+ENV REACT_APP_AZURE_TENANT_ID=$REACT_APP_AZURE_TENANT_ID
+ENV REACT_APP_REDIRECT_URI=$REACT_APP_REDIRECT_URI
 
 # Build the app
 RUN npm run build

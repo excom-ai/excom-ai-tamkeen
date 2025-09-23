@@ -369,7 +369,7 @@ function Chat({ settings }) {
               onClick={handleSendMessage}
               disabled={!inputMessage.trim() || isTyping}
             >
-              {isTyping ? '⏳' : '📤'} Send
+              {isTyping ? '⏳' : '📤'} Go
             </button>
           )}
         </div>

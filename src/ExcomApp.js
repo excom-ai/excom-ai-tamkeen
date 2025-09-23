@@ -8,6 +8,7 @@ import './ExcomApp.css';
 function ExcomApp() {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('chat');
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Load settings from localStorage or use defaults
   const [settings, setSettings] = useState(() => {
@@ -21,10 +22,24 @@ function ExcomApp() {
     };
   });
 
-  // Save settings to localStorage whenever they change
+  // Save settings to localStorage whenever they change - v2.0
   useEffect(() => {
     localStorage.setItem('excomSettings', JSON.stringify(settings));
   }, [settings]);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserMenu && !event.target.closest('.user-info')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
 
   // Show loading state
   if (isLoading) {
@@ -64,10 +79,22 @@ function ExcomApp() {
           </button>
         </div>
         <div className="user-info">
-          <span className="user-name">{user?.name || user?.username}</span>
-          <button className="logout-btn" onClick={logout}>
-            Sign Out
+          <button
+            className="user-toggle-btn"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+          >
+            <span className="user-icon">👤</span>
           </button>
+          {showUserMenu && (
+            <div className="user-dropdown">
+              <div className="user-name">
+                {user?.name || user?.username || user?.displayName || user?.mail || user?.userPrincipalName || 'User'}
+              </div>
+              <button className="logout-btn" onClick={logout}>
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
