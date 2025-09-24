@@ -162,6 +162,7 @@ def fetch_all_issues(
                     issues = result.get('issues', [])
                     total = result.get('total', 0)
                     next_page_token = result.get('nextPageToken', None)
+                    is_last = result.get('isLast', False)
 
                     # Log details about the response structure for debugging
                     if batch_num == 0:
@@ -173,6 +174,7 @@ def fetch_all_issues(
                     issues = []
                     total = 0
                     next_page_token = None
+                    is_last = True
 
                 # Add issues to our list
                 all_issues.extend(issues)
@@ -186,7 +188,7 @@ def fetch_all_issues(
                     logger.info(f"📊 Fetched {len(issues)} issues (batch {batch_num})")
 
                 # Check if we've fetched all issues
-                if not next_page_token or len(issues) < batch_size or total_fetched >= total:
+                if is_last or not next_page_token or (total > 0 and total_fetched >= total):
                     logger.info(f"✅ Fetched all {total_fetched} issues")
                     return all_issues
 
