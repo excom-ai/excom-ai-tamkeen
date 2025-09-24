@@ -12,6 +12,20 @@
 /build
 backend/static/
 
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
 # misc
 .DS_Store
 .env
