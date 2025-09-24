@@ -131,6 +131,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .user-toggle-btn {
@@ -201,6 +202,23 @@
   font-weight: 500;
 }
 
+.clear-chat-btn {
+  padding: 0.4rem 0.8rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-chat-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
 .user-dropdown .logout-btn {
   width: 100%;
   padding: 0.5rem 1rem;
@@ -211,6 +229,7 @@
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  margin-top: 0.5rem;
 }
 
 .user-dropdown .logout-btn:hover {

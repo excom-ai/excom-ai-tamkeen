@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useAuth } from './AuthProvider';
 import EnhancedMarkdown from './EnhancedMarkdown';
 import './Chat.css';
 
-function Chat({ settings }) {
+const Chat = forwardRef(({ settings }, ref) => {
   const { getAccessToken } = useAuth();
   const [messages, setMessages] = useState([
     { id: 1, text: "Hello! I'm your AI assistant. How can I help you today?", sender: 'bot', timestamp: new Date() }
@@ -80,12 +80,13 @@ function Chat({ settings }) {
       const decoder = new TextDecoder();
       let buffer = '';
 
-      // Add initial empty bot message
+      // Add initial empty bot message with thinking state
       setMessages(prev => [...prev, {
         id: botMessageId,
         text: '',
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        isThinking: true
       }]);
 
       while (true) {
@@ -110,7 +111,7 @@ function Chat({ settings }) {
                 accumulatedText += parsed.content;
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, text: accumulatedText }
+                    ? { ...msg, text: accumulatedText, isThinking: false }
                     : msg
                 ));
               } else if (parsed.type === 'tool_call') {
@@ -129,19 +130,29 @@ function Chat({ settings }) {
                 // Tool completed - stop processing indicator
                 setIsProcessing(false);
                 setProcessingTool('');
-                // Only show errors, skip successful results
+
+                // Only show errors, skip successful results (unless showThinking is true)
                 if (parsed.is_error) {
                   const errorInfo = `\n❌ Tool error: ${parsed.content}\n`;
                   accumulatedText += errorInfo;
                 }
+
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
                     ? { ...msg, text: accumulatedText, isProcessing: false, processingTool: '' }
                     : msg
                 ));
-              } else if (parsed.type === 'thinking' || parsed.type === 'reasoning' ||
-                         parsed.type === 'tool_complete' || parsed.type === 'status') {
-                // Skip these - don't display them at all
+              } else if (parsed.type === 'reasoning') {
+                // Show reasoning in a subtle way
+                const reasoningText = `\n*${parsed.content}*\n\n`;
+                accumulatedText += reasoningText;
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, text: accumulatedText }
+                    : msg
+                ));
+              } else if (parsed.type === 'thinking' || parsed.type === 'tool_complete' || parsed.type === 'status') {
+                // Skip these for now
               } else if (parsed.type === 'error') {
                 throw new Error(parsed.content);
               } else if (parsed.type === 'done') {
@@ -285,20 +296,26 @@ function Chat({ settings }) {
     }]);
   }, []);
 
+  // Expose clearChat method to parent component
+  useImperativeHandle(ref, () => ({
+    clearChat
+  }));
+
   return (
     <div className="chat-container">
-      <div className="chat-header">
-        <span className="chat-title">ExCom AI Assistant</span>
-        <button className="clear-btn" onClick={clearChat}>
-          🗑️ Clear
-        </button>
-      </div>
-
       <div className="messages-area">
         {messages.map(message => {
           const messageContent = message.sender === 'bot' ? (
             <React.Fragment key={`content-${message.id}`}>
-              <EnhancedMarkdown content={message.text} />
+              {message.isThinking && !message.text ? (
+                <div className="thinking-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              ) : (
+                <EnhancedMarkdown content={message.text} />
+              )}
               {message.isProcessing && (
                 <div className="processing-indicator">
                   <span className="processing-dots">
@@ -376,6 +393,6 @@ function Chat({ settings }) {
       </div>
     </div>
   );
-}
+});
 
 export default Chat;

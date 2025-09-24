@@ -283,9 +283,7 @@ class AIService:
 
             messages.append(HumanMessage(content=message))
 
-            # Stream reasoning first
-            yield json.dumps({'type': 'reasoning', 'content': '🤔 Analyzing your request...'})
-            await asyncio.sleep(0.5)
+            # Skip the analyzing message - removed for cleaner UI
 
             # Process tool calls first (non-streaming)
             max_rounds = 10

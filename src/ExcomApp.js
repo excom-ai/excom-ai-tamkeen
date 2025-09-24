@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './components/AuthProvider';
 import Chat from './components/Chat';
 import Login from './components/Login';
@@ -7,6 +7,7 @@ import './ExcomApp.css';
 function ExcomApp() {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const chatRef = useRef(null);
 
   // Load settings from localStorage or use defaults
   const [settings, setSettings] = useState(() => {
@@ -65,6 +66,13 @@ function ExcomApp() {
         </div>
         <div className="user-info">
           <button
+            className="clear-chat-btn"
+            onClick={() => chatRef.current?.clearChat()}
+            title="Clear chat"
+          >
+            Clear
+          </button>
+          <button
             className="user-toggle-btn"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
@@ -86,7 +94,7 @@ function ExcomApp() {
 
       {/* Content */}
       <main className="app-content">
-        <Chat settings={settings} />
+        <Chat ref={chatRef} settings={settings} />
       </main>
     </div>
   );
