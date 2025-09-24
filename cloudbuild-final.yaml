@@ -1,0 +1,43 @@
+# Simple Cloud Build configuration for direct deployment
+steps:
+  # Build the Docker image with build arguments
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'me-central1-docker.pkg.dev/$PROJECT_ID/excom-ai-tamkeen/app:latest'
+      - '--build-arg'
+      - 'REACT_APP_AZURE_CLIENT_ID=3f8e0863-88f4-4dde-b4cf-44728ce39ba7'
+      - '--build-arg'
+      - 'REACT_APP_AZURE_TENANT_ID=961673de-7f0e-40ff-af04-bf8853e979f2'
+      - '--build-arg'
+      - 'REACT_APP_REDIRECT_URI=https://excom-ai-tamkeen-150270395888.me-central1.run.app'
+      - '.'
+
+  # Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'me-central1-docker.pkg.dev/$PROJECT_ID/excom-ai-tamkeen/app:latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'excom-ai-tamkeen'
+      - '--image'
+      - 'me-central1-docker.pkg.dev/$PROJECT_ID/excom-ai-tamkeen/app:latest'
+      - '--region'
+      - 'me-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8000'
+      - '--memory'
+      - '512Mi'
+      - '--timeout'
+      - '300'
+
+timeout: '1800s'
