@@ -314,7 +314,10 @@ const Chat = forwardRef(({ settings }, ref) => {
                   <span></span>
                 </div>
               ) : (
-                <EnhancedMarkdown content={message.text} />
+                <EnhancedMarkdown
+                  content={message.text}
+                  isStreaming={isTyping && message.id === (messages[messages.length - 1]?.id)}
+                />
               )}
               {message.isProcessing && (
                 <div className="processing-indicator">
@@ -333,7 +336,7 @@ const Chat = forwardRef(({ settings }, ref) => {
             <div key={message.id} className="system-message" data-type={message.messageType || 'status'}>
               <div className="system-message-content">
                 {message.messageType === 'tool_result' || message.messageType === 'tool_error' ? (
-                  <EnhancedMarkdown content={message.text} />
+                  <EnhancedMarkdown content={message.text} isStreaming={false} />
                 ) : (
                   message.text
                 )}
