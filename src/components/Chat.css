@@ -24,7 +24,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0.5rem;
+  padding: 0.5rem 0.5rem 0 0.5rem; /* Remove bottom padding */
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -35,7 +35,7 @@
 
 @media (min-width: 769px) {
   .messages-area {
-    padding: 1rem;
+    padding: 1rem 1rem 0 1rem; /* Remove bottom padding on desktop too */
     gap: 1rem;
   }
 }
@@ -62,7 +62,7 @@
 .message {
   display: flex;
   animation: slideIn 0.3s ease;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.15rem; /* Minimal gap between messages */
 }
 
 @keyframes slideIn {
@@ -483,19 +483,23 @@
 /* Typing Indicator */
 .typing-indicator {
   display: flex;
-  gap: 0.3rem;
-  padding: 0.75rem 1rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 15px;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(100, 100, 255, 0.1), rgba(150, 100, 255, 0.1));
+  border: 1px solid rgba(100, 100, 255, 0.2);
+  border-radius: 20px;
   width: fit-content;
+  margin-left: 0.5rem;
+  animation: fadeIn 0.3s ease;
 }
 
 .typing-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.6);
-  animation: bounce 1.4s infinite ease-in-out;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  animation: typingPulse 1.4s infinite ease-in-out;
 }
 
 .typing-dot:nth-child(1) {
@@ -517,9 +521,20 @@
   }
 }
 
+@keyframes typingPulse {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
 /* Input Area */
 .input-area {
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   background: #000000;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
@@ -530,7 +545,7 @@
 
 @media (min-width: 769px) {
   .input-area {
-    padding: 1.5rem 2rem;
+    padding: 1rem 2rem;
     gap: 1rem;
   }
 }
@@ -695,7 +710,7 @@
 
   /* Better message spacing on mobile */
   .message {
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.1rem; /* Very tight on mobile */
   }
 
   /* Adjust system messages for mobile */
@@ -791,6 +806,67 @@
 
 .enhanced-markdown p:last-child {
   margin-bottom: 0;
+}
+
+/* HTML Loading Status */
+.html-loading-status {
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  margin: 0.5rem 0;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.status-icon {
+  font-size: 1.2rem;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.status-text {
+  flex: 1;
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.status-info {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.status-progress {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #9333ea);
+  width: 0;
+  animation: loading 2s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% { width: 0; }
+  50% { width: 70%; }
+  100% { width: 100%; }
 }
 
 /* AI Reasoning Process Section */

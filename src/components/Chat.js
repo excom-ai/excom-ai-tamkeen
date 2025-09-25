@@ -83,16 +83,9 @@ const Chat = forwardRef(({ settings }, ref) => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let firstContentReceived = false;
 
-      // Add initial empty bot message with streaming text
-      setMessages(prev => [...prev, {
-        id: botMessageId,
-        streamingText: '', // Separate field for streaming text
-        completedItems: [], // Completed non-text items
-        sender: 'bot',
-        timestamp: new Date(),
-        isStreaming: true
-      }]);
+      // Don't add the bot message yet - wait for first content
 
       while (true) {
         const { done, value } = await reader.read();
@@ -114,12 +107,27 @@ const Chat = forwardRef(({ settings }, ref) => {
 
               if (parsed.type === 'content') {
                 accumulatedText += parsed.content;
-                // Only update the streaming text field
-                setMessages(prev => prev.map(msg =>
-                  msg.id === botMessageId
-                    ? { ...msg, streamingText: accumulatedText }
-                    : msg
-                ));
+
+                // Add bot message on first content
+                if (!firstContentReceived) {
+                  firstContentReceived = true;
+                  setIsTyping(false); // Hide typing indicator
+                  setMessages(prev => [...prev, {
+                    id: botMessageId,
+                    streamingText: accumulatedText,
+                    completedItems: [],
+                    sender: 'bot',
+                    timestamp: new Date(),
+                    isStreaming: true
+                  }]);
+                } else {
+                  // Update existing message
+                  setMessages(prev => prev.map(msg =>
+                    msg.id === botMessageId
+                      ? { ...msg, streamingText: accumulatedText }
+                      : msg
+                  ));
+                }
               } else if (parsed.type === 'thinking' || parsed.type === 'reasoning') {
                 // Add completed thinking item
                 const thinkingItem = { type: 'thinking', content: parsed.content, timestamp: Date.now() };
@@ -337,7 +345,7 @@ const Chat = forwardRef(({ settings }, ref) => {
             </div>
           );
         })}
-        {isTyping && !currentAbortController && (
+        {isTyping && (
           <div className="typing-indicator">
             <div className="typing-dot"></div>
             <div className="typing-dot"></div>

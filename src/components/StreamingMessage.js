@@ -41,6 +41,13 @@ const StreamingText = memo(({ text, isStreaming, autoRenderHtml }) => {
   const contentRef = useRef(null);
   const lastTextRef = useRef('');
 
+  // Check if content contains HTML
+  const hasHtmlContent = text && (
+    text.includes('```html') ||
+    text.includes('<!DOCTYPE') ||
+    (text.includes('<html') && text.includes('</html>'))
+  );
+
   // Update text content directly via DOM when streaming
   useEffect(() => {
     if (isStreaming && contentRef.current && text !== lastTextRef.current) {
@@ -51,6 +58,23 @@ const StreamingText = memo(({ text, isStreaming, autoRenderHtml }) => {
       }
     }
   }, [text, isStreaming]);
+
+  // Show loading status for HTML content while streaming
+  if (isStreaming && hasHtmlContent) {
+    const lines = text.split('\n').length;
+    return (
+      <div className="html-loading-status">
+        <div className="status-bar">
+          <span className="status-icon">🔄</span>
+          <span className="status-text">Generating HTML visualization...</span>
+          <span className="status-info">{lines} lines</span>
+        </div>
+        <div className="status-progress">
+          <div className="progress-bar"></div>
+        </div>
+      </div>
+    );
+  }
 
   // Use EnhancedMarkdown for complex content or when not streaming
   if (!isStreaming || text.includes('```') || text.includes('`') || text.includes('#')) {
