@@ -346,6 +346,14 @@
   }
 }
 
+/* Streaming text content - simple div for performance */
+.streaming-text-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.6;
+  color: #E0E0E0;
+}
+
 /* Inline sequential display styles */
 .inline-thinking {
   padding: 0.5rem;

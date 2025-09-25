@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useAuth } from './AuthProvider';
 import EnhancedMarkdown from './EnhancedMarkdown';
+import StreamingMessage from './StreamingMessage';
 import './Chat.css';
 
 const Chat = forwardRef(({ settings }, ref) => {
@@ -329,61 +330,9 @@ const Chat = forwardRef(({ settings }, ref) => {
     <div className="chat-container">
       <div className="messages-area">
         {messages.map(message => {
-          const renderBotMessage = () => {
-            // New optimized rendering with separated streaming text
-            if (message.completedItems !== undefined || message.streamingText !== undefined) {
-              return (
-                <React.Fragment key={`content-${message.id}`}>
-                  {/* Render completed items (thinking, tools) */}
-                  {message.completedItems?.map((item, idx) => {
-                    if (item.type === 'thinking') {
-                      return (
-                        <div key={`think-${item.timestamp}`} className="inline-thinking">
-                          <span className="think-icon">🤔</span>
-                          <span className="think-content">{item.content}</span>
-                        </div>
-                      );
-                    } else if (item.type === 'tool_call') {
-                      return (
-                        <div key={`tool-${item.timestamp}`} className="inline-tool-call">
-                          <span className="tool-icon">🔧</span>
-                          <span className="tool-name">{item.name}</span>
-                          {item.isProcessing && (
-                            <span className="tool-processing">
-                              <span className="processing-dots">
-                                <span></span><span></span><span></span>
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
-                  {/* Render streaming or final text */}
-                  {(message.streamingText || message.text) && (
-                    <EnhancedMarkdown
-                      key={`text-${message.id}`}
-                      content={message.streamingText || message.text}
-                      isStreaming={message.isStreaming}
-                      autoRenderHtml={settings.autoRenderHtml}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            }
-
-            // Fallback for old format (backward compatibility)
-            return (
-              <EnhancedMarkdown
-                content={message.text}
-                isStreaming={isTyping && message.id === (messages[messages.length - 1]?.id)}
-                autoRenderHtml={settings.autoRenderHtml}
-              />
-            );
-          };
-
-          const messageContent = message.sender === 'bot' ? renderBotMessage() : message.text;
+          const messageContent = message.sender === 'bot'
+            ? <StreamingMessage message={message} settings={settings} />
+            : message.text;
 
           return message.sender === 'system' ? (
             <div key={message.id} className="system-message" data-type={message.messageType || 'status'}>
