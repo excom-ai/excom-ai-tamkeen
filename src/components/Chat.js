@@ -50,7 +50,7 @@ const Chat = forwardRef(({ settings }, ref) => {
 
     const botMessageId = Date.now() + 1;
     let accumulatedText = '';
-    let lastTextIndex = -1; // Track the last text content index
+    let completedItems = []; // Only non-text items that are complete
 
     try {
       // Get auth token if available
@@ -83,11 +83,11 @@ const Chat = forwardRef(({ settings }, ref) => {
       const decoder = new TextDecoder();
       let buffer = '';
 
-      // Add initial empty bot message
+      // Add initial empty bot message with streaming text
       setMessages(prev => [...prev, {
         id: botMessageId,
-        content: [], // Array to hold sequential content
-        text: '', // Keep for backward compatibility
+        streamingText: '', // Separate field for streaming text
+        completedItems: [], // Completed non-text items
         sender: 'bot',
         timestamp: new Date(),
         isStreaming: true
@@ -113,34 +113,23 @@ const Chat = forwardRef(({ settings }, ref) => {
 
               if (parsed.type === 'content') {
                 accumulatedText += parsed.content;
-                // Update or add text content efficiently
-                setMessages(prev => prev.map(msg => {
-                  if (msg.id === botMessageId) {
-                    const newContent = [...(msg.content || [])];
-                    if (lastTextIndex >= 0 && lastTextIndex < newContent.length) {
-                      // Update existing text content
-                      newContent[lastTextIndex] = { type: 'text', content: accumulatedText, timestamp: Date.now() };
-                    } else {
-                      // Add new text content
-                      newContent.push({ type: 'text', content: accumulatedText, timestamp: Date.now() });
-                      lastTextIndex = newContent.length - 1;
-                    }
-                    return { ...msg, content: newContent, text: accumulatedText, isStreaming: true };
-                  }
-                  return msg;
-                }));
+                // Only update the streaming text field
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, streamingText: accumulatedText }
+                    : msg
+                ));
               } else if (parsed.type === 'thinking' || parsed.type === 'reasoning') {
-                // Add thinking/reasoning as a sequential item
-                setMessages(prev => prev.map(msg => {
-                  if (msg.id === botMessageId) {
-                    const newContent = [...(msg.content || [])];
-                    newContent.push({ type: 'thinking', content: parsed.content, timestamp: Date.now() });
-                    return { ...msg, content: newContent };
-                  }
-                  return msg;
-                }));
+                // Add completed thinking item
+                const thinkingItem = { type: 'thinking', content: parsed.content, timestamp: Date.now() };
+                completedItems.push(thinkingItem);
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, completedItems: [...completedItems] }
+                    : msg
+                ));
               } else if (parsed.type === 'tool_call') {
-                // Add tool call as a sequential item
+                // Add tool call
                 const toolInfo = {
                   type: 'tool_call',
                   name: parsed.tool || 'tool',
@@ -148,38 +137,39 @@ const Chat = forwardRef(({ settings }, ref) => {
                   timestamp: Date.now(),
                   isProcessing: true
                 };
-                setMessages(prev => prev.map(msg => {
-                  if (msg.id === botMessageId) {
-                    const newContent = [...(msg.content || [])];
-                    newContent.push(toolInfo);
-                    return { ...msg, content: newContent };
-                  }
-                  return msg;
-                }));
+                completedItems.push(toolInfo);
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, completedItems: [...completedItems] }
+                    : msg
+                ));
               } else if (parsed.type === 'tool_result') {
                 // Mark the last tool call as completed
-                setMessages(prev => prev.map(msg => {
-                  if (msg.id === botMessageId) {
-                    const newContent = [...(msg.content || [])];
-                    for (let i = newContent.length - 1; i >= 0; i--) {
-                      if (newContent[i].type === 'tool_call' && newContent[i].isProcessing) {
-                        newContent[i] = { ...newContent[i], isProcessing: false };
-                        break;
-                      }
-                    }
-                    return { ...msg, content: newContent };
+                for (let i = completedItems.length - 1; i >= 0; i--) {
+                  if (completedItems[i].type === 'tool_call' && completedItems[i].isProcessing) {
+                    completedItems[i] = { ...completedItems[i], isProcessing: false };
+                    break;
                   }
-                  return msg;
-                }));
+                }
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, completedItems: [...completedItems] }
+                    : msg
+                ));
               } else if (parsed.type === 'tool_complete' || parsed.type === 'status') {
                 // Skip these for now
               } else if (parsed.type === 'error') {
                 throw new Error(parsed.content);
               } else if (parsed.type === 'done') {
-                // Stream complete - mark as not streaming
+                // Stream complete - finalize the message
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, isStreaming: false }
+                    ? {
+                        ...msg,
+                        text: accumulatedText, // Final text for backward compatibility
+                        streamingText: accumulatedText,
+                        isStreaming: false
+                      }
                     : msg
                 ));
                 console.log('Stream completed - received done signal');
@@ -199,25 +189,30 @@ const Chat = forwardRef(({ settings }, ref) => {
       if (error.name === 'AbortError') {
         const reason = error.cause || error.message;
         if (reason === 'user_stopped') {
-          setMessages(prev => prev.map(msg => {
-            if (msg.id === botMessageId) {
-              const newContent = [...(msg.content || [])];
-              newContent.push({ type: 'text', content: '\n\n*[Generation stopped by user]*', timestamp: Date.now() });
-              return { ...msg, content: newContent, text: accumulatedText + '\n\n*[Generation stopped by user]*', isStreaming: false };
-            }
-            return msg;
-          }));
+          setMessages(prev => prev.map(msg =>
+            msg.id === botMessageId
+              ? {
+                  ...msg,
+                  streamingText: accumulatedText + '\n\n*[Generation stopped by user]*',
+                  text: accumulatedText + '\n\n*[Generation stopped by user]*',
+                  isStreaming: false
+                }
+              : msg
+          ));
         }
       } else {
         console.error('Stream error:', error);
-        setMessages(prev => prev.map(msg => {
-          if (msg.id === botMessageId) {
-            const newContent = [...(msg.content || [])];
-            newContent.push({ type: 'error', content: 'Sorry, I encountered an error. Please try again.', timestamp: Date.now() });
-            return { ...msg, content: newContent, text: 'Sorry, I encountered an error. Please try again.', isError: true, isStreaming: false };
-          }
-          return msg;
-        }));
+        setMessages(prev => prev.map(msg =>
+          msg.id === botMessageId
+            ? {
+                ...msg,
+                streamingText: 'Sorry, I encountered an error. Please try again.',
+                text: 'Sorry, I encountered an error. Please try again.',
+                isError: true,
+                isStreaming: false
+              }
+            : msg
+        ));
       }
     } finally {
       setCurrentAbortController(null);
@@ -335,53 +330,41 @@ const Chat = forwardRef(({ settings }, ref) => {
       <div className="messages-area">
         {messages.map(message => {
           const renderBotMessage = () => {
-            // For new sequential content format
-            if (message.content && Array.isArray(message.content)) {
-              let currentText = '';
-              let textElements = [];
-              let otherElements = [];
-
-              // Separate text from other elements to render text only once
-              message.content.forEach((item, idx) => {
-                if (item.type === 'text') {
-                  currentText = item.content;
-                } else if (item.type === 'thinking') {
-                  otherElements.push(
-                    <div key={`think-${item.timestamp}-${idx}`} className="inline-thinking">
-                      <span className="think-icon">🤔</span>
-                      <span className="think-content">{item.content}</span>
-                    </div>
-                  );
-                } else if (item.type === 'tool_call') {
-                  otherElements.push(
-                    <div key={`tool-${item.timestamp}-${idx}`} className="inline-tool-call">
-                      <span className="tool-icon">🔧</span>
-                      <span className="tool-name">{item.name}</span>
-                      {item.isProcessing && (
-                        <span className="tool-processing">
-                          <span className="processing-dots">
-                            <span></span><span></span><span></span>
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                  );
-                } else if (item.type === 'error') {
-                  otherElements.push(
-                    <div key={`error-${item.timestamp}-${idx}`} className="inline-error">
-                      {item.content}
-                    </div>
-                  );
-                }
-              });
-
+            // New optimized rendering with separated streaming text
+            if (message.completedItems !== undefined || message.streamingText !== undefined) {
               return (
                 <React.Fragment key={`content-${message.id}`}>
-                  {otherElements}
-                  {currentText && (
+                  {/* Render completed items (thinking, tools) */}
+                  {message.completedItems?.map((item, idx) => {
+                    if (item.type === 'thinking') {
+                      return (
+                        <div key={`think-${item.timestamp}`} className="inline-thinking">
+                          <span className="think-icon">🤔</span>
+                          <span className="think-content">{item.content}</span>
+                        </div>
+                      );
+                    } else if (item.type === 'tool_call') {
+                      return (
+                        <div key={`tool-${item.timestamp}`} className="inline-tool-call">
+                          <span className="tool-icon">🔧</span>
+                          <span className="tool-name">{item.name}</span>
+                          {item.isProcessing && (
+                            <span className="tool-processing">
+                              <span className="processing-dots">
+                                <span></span><span></span><span></span>
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                  {/* Render streaming or final text */}
+                  {(message.streamingText || message.text) && (
                     <EnhancedMarkdown
-                      key={`text-final`}
-                      content={currentText}
+                      key={`text-${message.id}`}
+                      content={message.streamingText || message.text}
                       isStreaming={message.isStreaming}
                       autoRenderHtml={settings.autoRenderHtml}
                     />
