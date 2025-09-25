@@ -223,48 +223,53 @@ class AIService:
                     # Small delay between rounds
                     await asyncio.sleep(1.0)
                 else:
-                    # No more tools to call, return final response
+                    # No more tools to call, now stream the final response
                     logger.info(
                         f"✨ Complete after {round + 1} rounds with {total_tools_called} tool calls"
                     )
-                    output = response.content
-                    logger.debug(f"Final response type: {type(output)}")
-                    logger.debug(
-                        f"Final response: {str(output)[:500]}..."
-                        if len(str(output)) > 500
-                        else f"Final response: {output}"
-                    )
+
+                    # Now stream the final response using astream
+                    logger.info("Streaming final AI response...")
+
+                    # Create a new query for the final streaming response
+                    final_messages = messages[:-1]  # Remove the last AIMessage
+
+                    try:
+                        # Stream the response character by character
+                        async for chunk in self.llm_with_tools.astream(final_messages):
+                            if hasattr(chunk, 'content') and chunk.content:
+                                # Extract and stream text content
+                                if isinstance(chunk.content, str):
+                                    yield json.dumps({'type': 'content', 'content': chunk.content})
+                                elif isinstance(chunk.content, list):
+                                    for item in chunk.content:
+                                        if isinstance(item, dict) and item.get('type') == 'text':
+                                            yield json.dumps({'type': 'content', 'content': item.get('text', '')})
+                                        elif isinstance(item, str):
+                                            yield json.dumps({'type': 'content', 'content': item})
+                                await asyncio.sleep(0.01)  # Small delay for smooth streaming
+                    except AttributeError:
+                        # Fallback if astream not available
+                        output = response.content
+                        if isinstance(output, str):
+                            # Stream it in chunks
+                            for i in range(0, len(output), 10):
+                                chunk = output[i:i+10]
+                                yield json.dumps({'type': 'content', 'content': chunk})
+                                await asyncio.sleep(0.015)
+                        else:
+                            yield json.dumps({'type': 'content', 'content': str(output)})
+
                     break
             else:
                 # Safety limit reached
                 logger.warning(f"Reached max rounds ({max_rounds})")
                 output = f"Analysis complete after processing {total_tools_called} operations."
-
-            # Handle various response formats
-            if isinstance(output, list):
-                text_parts = []
-                for item in output:
-                    if isinstance(item, dict):
-                        if item.get("type") == "text":
-                            text_parts.append(item.get("text", ""))
-                        elif "text" in item:
-                            text_parts.append(item["text"])
-                    elif isinstance(item, str):
-                        text_parts.append(item)
-                output = " ".join(text_parts) if text_parts else str(output)
-            elif isinstance(output, dict):
-                if output.get("type") == "text":
-                    output = output.get("text", str(output))
-                elif "text" in output:
-                    output = output["text"]
-                else:
-                    output = str(output)
-
-            return str(output) if output else "Query completed."
+                yield json.dumps({'type': 'content', 'content': output})
 
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")
-            return f"I encountered an error: {str(e)}"
+            yield json.dumps({'type': 'error', 'content': f"I encountered an error: {str(e)}"})
 
     async def stream_response(
         self, message: str, conversation_history: list = None
@@ -309,26 +314,75 @@ class AIService:
                     # Send reasoning about what we're about to do
                     tool_names = [tc.get('name') for tc in response.tool_calls]
 
-                    # Only show intro message on first round when we have new tools
-                    if round == 0 and total_tools_called == num_tools:
-                        # First time using tools - give a brief intro
-                        if 'query_fresh_service_tickets' in tool_names and 'query_jira_demands' in tool_names:
-                            reasoning_text = "I'll check both Freshservice and JIRA for you...\n\n"
-                        elif 'query_fresh_service_tickets' in tool_names:
-                            reasoning_text = "I'll check Freshservice for you...\n\n"
-                        elif 'query_jira_demands' in tool_names:
-                            reasoning_text = "I'll check JIRA for you...\n\n"
-                        elif 'get_data_status' in tool_names:
-                            reasoning_text = "Let me check the data status...\n\n"
-                        else:
-                            reasoning_text = ""
+                    # Send detailed thinking process for EVERY round
+                    thinking_steps = []
 
-                        # Stream the intro only once
-                        if reasoning_text:
-                            for i in range(0, len(reasoning_text), 4):
-                                chunk = reasoning_text[i:i+4]
-                                yield json.dumps({'type': 'content', 'content': chunk})
-                                await asyncio.sleep(0.015)
+                    if round == 0:
+                        # Initial analysis
+                        thinking_steps.append(f"Analyzing the user's request...")
+
+                        # Analyze what tools we're about to use and why
+                        if 'query_fresh_service_tickets' in tool_names and 'query_jira_demands' in tool_names:
+                            thinking_steps.extend([
+                                "The query requires data from both ticketing systems",
+                                "I'll query Freshservice for IT tickets and JIRA for project demands",
+                                "This will give me comprehensive data to analyze"
+                            ])
+                        elif 'query_fresh_service_tickets' in tool_names:
+                            thinking_steps.extend([
+                                "This query is focused on IT service desk tickets",
+                                "I'll use Freshservice data to provide accurate insights"
+                            ])
+                        elif 'query_jira_demands' in tool_names:
+                            thinking_steps.extend([
+                                "This query is about project demands or issues",
+                                "I'll analyze JIRA data to find relevant information"
+                            ])
+                        elif 'get_data_status' in tool_names:
+                            thinking_steps.append("I need to check the current status of our data sources")
+                    else:
+                        # Subsequent rounds - show reasoning about why we need more tools
+                        thinking_steps.append(f"Round {round + 1}: Analyzing results from previous tools...")
+                        thinking_steps.append(f"I need to execute {num_tools} more tool{'s' if num_tools > 1 else ''} to complete the analysis")
+
+                        # Add specific reasoning based on tool types
+                        if 'query_fresh_service_tickets' in tool_names:
+                            thinking_steps.append("Need additional Freshservice data to refine the analysis")
+                        if 'query_jira_demands' in tool_names:
+                            thinking_steps.append("Need additional JIRA data for complete picture")
+
+                    # Analyze SQL queries if present
+                    for tc in response.tool_calls:
+                        tool_args = tc.get('args', {})
+                        sql = tool_args.get('excomai_sql', '')
+                        if sql:
+                            if 'COUNT' in sql.upper():
+                                thinking_steps.append(f"Counting records: {sql[:100]}...")
+                            elif 'WHERE' in sql.upper():
+                                thinking_steps.append(f"Filtering with conditions: {sql[:100]}...")
+                            elif 'GROUP BY' in sql.upper():
+                                thinking_steps.append(f"Grouping data: {sql[:100]}...")
+                            else:
+                                thinking_steps.append(f"Querying: {sql[:100]}...")
+
+                    # Stream thinking steps
+                    for step in thinking_steps:
+                        yield json.dumps({
+                            'type': 'thinking',
+                            'content': step
+                        })
+                        await asyncio.sleep(0.05)
+
+                    # Brief transition message
+                    if round == 0:
+                        intro_text = "Let me execute these queries now...\n\n"
+                    else:
+                        intro_text = f"Executing additional queries...\n\n"
+
+                    for i in range(0, len(intro_text), 4):
+                        chunk = intro_text[i:i+4]
+                        yield json.dumps({'type': 'content', 'content': chunk})
+                        await asyncio.sleep(0.01)
 
                     logger.info(f"\n🔧 Processing {num_tools} tool calls")
 
@@ -425,44 +479,88 @@ class AIService:
                             )
                         )
 
-                    # Don't stream any status message here - just continue
+                    # Send thinking about what we learned from these tools
+                    post_tool_thinking = []
+                    post_tool_thinking.append(f"Processed {num_tools} tool{'s' if num_tools > 1 else ''} successfully")
+                    post_tool_thinking.append("Analyzing the results to determine next steps...")
+
+                    for step in post_tool_thinking:
+                        yield json.dumps({
+                            'type': 'thinking',
+                            'content': step
+                        })
+                        await asyncio.sleep(0.05)
 
                     # Continue to next round to get the final response from LLM
                     continue  # This will go back to the loop and get the final response
                 else:
-                    # No more tools - stream the final response
+                    # No more tools - stream the final response using astream like excom-erp
                     logger.info(f"✨ Final response after {total_tools_called} tool calls")
 
-                    # We have the response already, let's stream it
-                    final_content = response.content
+                    # Send final reasoning before streaming response
+                    if total_tools_called > 0:
+                        final_thinking = []
+                        final_thinking.append(f"Completed analysis with {total_tools_called} tool{'s' if total_tools_called > 1 else ''}")
+                        final_thinking.append("Now compiling the final response based on all the data collected...")
 
-                    # Handle different content formats
-                    if isinstance(final_content, list):
-                        # Handle list of content blocks
-                        for block in final_content:
-                            if isinstance(block, dict) and block.get('type') == 'text':
-                                text_content = block.get('text', '')
-                                if text_content:
-                                    # Stream in chunks for natural effect
-                                    for i in range(0, len(text_content), 10):
-                                        chunk = text_content[i:i+10]
-                                        yield json.dumps({"type": "content", "content": chunk})
-                                        await asyncio.sleep(0.01)
-                            elif isinstance(block, str):
-                                if block:
-                                    for i in range(0, len(block), 10):
-                                        chunk = block[i:i+10]
-                                        yield json.dumps({"type": "content", "content": chunk})
-                                        await asyncio.sleep(0.01)
-                    elif isinstance(final_content, str) and final_content:
-                        # Stream string content in chunks
-                        for i in range(0, len(final_content), 10):
-                            chunk = final_content[i:i+10]
-                            yield json.dumps({"type": "content", "content": chunk})
-                            await asyncio.sleep(0.01)
-                    else:
-                        # Fallback - just send whatever we have
-                        yield json.dumps({"type": "content", "content": str(final_content)})
+                        for step in final_thinking:
+                            yield json.dumps({
+                                'type': 'thinking',
+                                'content': step
+                            })
+                            await asyncio.sleep(0.05)
+
+                    # Remove the last AIMessage to get fresh streaming response
+                    final_messages = messages[:-1]
+
+                    try:
+                        # Use astream for real-time character-by-character streaming
+                        logger.info("Starting astream for final response...")
+                        async for chunk in self.llm_with_tools.astream(final_messages):
+                            if hasattr(chunk, 'content') and chunk.content:
+                                # Extract and stream text content
+                                if isinstance(chunk.content, str):
+                                    yield json.dumps({'type': 'content', 'content': chunk.content})
+                                elif isinstance(chunk.content, list):
+                                    for item in chunk.content:
+                                        if isinstance(item, dict):
+                                            if item.get('type') == 'text' and 'text' in item:
+                                                yield json.dumps({'type': 'content', 'content': item['text']})
+                                            elif 'partial_json' in item:
+                                                # Skip partial JSON during final response
+                                                continue
+                                        elif isinstance(item, str):
+                                            yield json.dumps({'type': 'content', 'content': item})
+                                # Small delay for smooth streaming effect
+                                await asyncio.sleep(0.005)
+                    except (AttributeError, Exception) as e:
+                        logger.warning(f"astream not available or failed: {e}, falling back to chunked streaming")
+                        # Fallback to chunked streaming if astream not available
+                        final_content = response.content
+
+                        # Handle different content formats
+                        if isinstance(final_content, list):
+                            for block in final_content:
+                                if isinstance(block, dict) and block.get('type') == 'text':
+                                    text_content = block.get('text', '')
+                                    if text_content:
+                                        for i in range(0, len(text_content), 10):
+                                            chunk = text_content[i:i+10]
+                                            yield json.dumps({"type": "content", "content": chunk})
+                                            await asyncio.sleep(0.01)
+                                elif isinstance(block, str):
+                                    if block:
+                                        for i in range(0, len(block), 10):
+                                            chunk = block[i:i+10]
+                                            yield json.dumps({"type": "content", "content": chunk})
+                                            await asyncio.sleep(0.01)
+                        elif isinstance(final_content, str) and final_content:
+                            for i in range(0, len(final_content), 10):
+                                chunk = final_content[i:i+10]
+                                yield json.dumps({"type": "content", "content": chunk})
+                                await asyncio.sleep(0.01)
+                        else:
+                            yield json.dumps({"type": "content", "content": str(final_content)})
 
                     # Send completion signal
                     yield json.dumps({'type': 'done'})

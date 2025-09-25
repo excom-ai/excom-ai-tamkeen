@@ -16,8 +16,9 @@ function ExcomApp() {
       return JSON.parse(savedSettings);
     }
     return {
-      apiUrl: 'http://localhost:9000',
-      streaming: true  // Enable streaming for real-time responses
+      apiUrl: process.env.REACT_APP_API_URL || 'http://localhost:9000',
+      streaming: true,  // Enable streaming for real-time responses
+      autoRenderHtml: true  // Enable auto-rendering of HTML in iframes after streaming
     };
   });
 
@@ -71,6 +72,13 @@ function ExcomApp() {
             title="Clear chat"
           >
             Clear
+          </button>
+          <button
+            className={`html-toggle-btn ${settings.autoRenderHtml ? 'active' : ''}`}
+            onClick={() => setSettings(prev => ({...prev, autoRenderHtml: !prev.autoRenderHtml}))}
+            title={settings.autoRenderHtml ? 'HTML rendering ON - Click to disable' : 'HTML rendering OFF - Click to enable'}
+          >
+            {settings.autoRenderHtml ? '📋' : '🖼️'}
           </button>
           <button
             className="user-toggle-btn"

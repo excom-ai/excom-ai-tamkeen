@@ -188,7 +188,8 @@ def fetch_all_issues(
                     logger.info(f"📊 Fetched {len(issues)} issues (batch {batch_num})")
 
                 # Check if we've fetched all issues
-                if is_last or not next_page_token or (total > 0 and total_fetched >= total):
+                # Note: enhanced_jql doesn't always return accurate total, so rely on isLast and nextPageToken
+                if is_last or not next_page_token:
                     logger.info(f"✅ Fetched all {total_fetched} issues")
                     return all_issues
 

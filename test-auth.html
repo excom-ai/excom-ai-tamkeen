@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auth Config</title>
+</head>
+<body>
+    <h1>Testing Auth Configuration</h1>
+    <div id="config"></div>
+    <div id="redirect"></div>
+
+    <script>
+        // Check what redirect URI the app would use
+        const envRedirect = "http://localhost:3000";  // This should match what's in .env
+        const fallback = window.location.origin;
+
+        document.getElementById('config').innerHTML = `
+            <p><strong>Environment Redirect URI:</strong> ${envRedirect || 'Not Set'}</p>
+            <p><strong>Window Location Origin:</strong> ${fallback}</p>
+            <p><strong>Final Redirect URI:</strong> ${envRedirect || fallback}</p>
+        `;
+
+        // Show current URL
+        document.getElementById('redirect').innerHTML = `
+            <p><strong>Current URL:</strong> ${window.location.href}</p>
+            <p><strong>Current Origin:</strong> ${window.location.origin}</p>
+        `;
+    </script>
+</body>
+</html>

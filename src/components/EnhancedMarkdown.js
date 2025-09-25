@@ -12,10 +12,13 @@ import HtmlPreview from './HtmlPreview';
 import 'katex/dist/katex.min.css';
 import './EnhancedMarkdown.css';
 
-const EnhancedMarkdown = ({ content, className = '', isStreaming = false }) => {
+const EnhancedMarkdown = ({ content, className = '', isStreaming = false, autoRenderHtml = false }) => {
   // Detect if we have incomplete code blocks (streaming)
   const hasIncompleteCodeBlock = isStreaming && content.includes('```') &&
     (content.split('```').length % 2 === 0); // Odd number means open code block
+
+  // When streaming is done and autoRenderHtml is on, always render HTML in iframes
+  const shouldRenderHtml = !isStreaming && autoRenderHtml;
 
   const components = {
     code({ node, inline, className, children, ...props }) {
@@ -29,14 +32,18 @@ const EnhancedMarkdown = ({ content, className = '', isStreaming = false }) => {
         const isHtmlByLanguage = language && (language.toLowerCase() === 'html' || language.toLowerCase() === 'htm');
         const isHtmlByContent = !language && codeContent.trim().match(/^<!DOCTYPE html>|^<html|^<\!--.*-->/i);
 
-        if (isHtmlByLanguage || isHtmlByContent) {
+        // Auto-render HTML in iframe ONLY after streaming is complete
+        if (shouldRenderHtml && (isHtmlByLanguage || isHtmlByContent)) {
           return <HtmlPreview htmlContent={codeContent} />;
         }
+
+        // During streaming OR when auto-render is off, show HTML as code
+        const displayLanguage = (isHtmlByLanguage || isHtmlByContent) ? 'html' : language;
 
         // Use streaming code block component
         return (
           <StreamingCodeBlock
-            language={language}
+            language={displayLanguage}
             codeContent={codeContent}
             isStreaming={hasIncompleteCodeBlock}
           />

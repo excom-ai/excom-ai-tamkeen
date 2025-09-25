@@ -17,7 +17,9 @@ const Chat = forwardRef(({ settings }, ref) => {
   const inputRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 100);
   };
 
   useEffect(() => {
@@ -48,6 +50,8 @@ const Chat = forwardRef(({ settings }, ref) => {
 
     const botMessageId = Date.now() + 1;
     let accumulatedText = '';
+    let thinkingProcess = [];
+    let allToolsUsed = [];
 
     try {
       // Get auth token if available
@@ -60,7 +64,7 @@ const Chat = forwardRef(({ settings }, ref) => {
       }
 
       // Use relative URL in production, full URL in development
-      const apiUrl = process.env.NODE_ENV === 'production' ? '' : settings.apiUrl;
+      const apiUrl = settings.apiUrl;
       console.log('Fetching from:', `${apiUrl}/api/chat/stream`);
       const response = await fetch(`${apiUrl}/api/chat/stream`, {
         method: 'POST',
@@ -86,7 +90,9 @@ const Chat = forwardRef(({ settings }, ref) => {
         text: '',
         sender: 'bot',
         timestamp: new Date(),
-        isThinking: true
+        isThinking: true,
+        thinking: [],
+        tools: []
       }]);
 
       while (true) {
@@ -111,19 +117,31 @@ const Chat = forwardRef(({ settings }, ref) => {
                 accumulatedText += parsed.content;
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, text: accumulatedText, isThinking: false }
+                    ? { ...msg, text: accumulatedText, isThinking: false, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
+                    : msg
+                ));
+              } else if (parsed.type === 'thinking') {
+                // Capture thinking/reasoning steps
+                thinkingProcess.push(parsed.content);
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
                     : msg
                 ));
               } else if (parsed.type === 'tool_call') {
-                // Add condensed tool call info inline
-                const toolName = parsed.tool || 'tool';
-                const toolInfo = `\n\n🔧 *Using ${toolName}...*\n`;
-                accumulatedText += toolInfo;
+                // Track tool usage
+                const toolInfo = {
+                  name: parsed.tool || 'tool',
+                  input: parsed.tool_input || parsed.input,
+                  timestamp: new Date().toLocaleTimeString()
+                };
+                allToolsUsed.push(toolInfo);
+
                 setIsProcessing(true);
-                setProcessingTool(toolName);
+                setProcessingTool(toolInfo.name);
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, text: accumulatedText, isProcessing: true, processingTool: toolName }
+                    ? { ...msg, isProcessing: true, processingTool: toolInfo.name, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
                     : msg
                 ));
               } else if (parsed.type === 'tool_result') {
@@ -131,27 +149,20 @@ const Chat = forwardRef(({ settings }, ref) => {
                 setIsProcessing(false);
                 setProcessingTool('');
 
-                // Only show errors, skip successful results (unless showThinking is true)
-                if (parsed.is_error) {
-                  const errorInfo = `\n❌ Tool error: ${parsed.content}\n`;
-                  accumulatedText += errorInfo;
-                }
-
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, text: accumulatedText, isProcessing: false, processingTool: '' }
+                    ? { ...msg, isProcessing: false, processingTool: '', thinking: [...thinkingProcess], tools: [...allToolsUsed] }
                     : msg
                 ));
               } else if (parsed.type === 'reasoning') {
-                // Show reasoning in a subtle way
-                const reasoningText = `\n*${parsed.content}*\n\n`;
-                accumulatedText += reasoningText;
+                // Capture reasoning as thinking step
+                thinkingProcess.push(parsed.content);
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, text: accumulatedText }
+                    ? { ...msg, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
                     : msg
                 ));
-              } else if (parsed.type === 'thinking' || parsed.type === 'tool_complete' || parsed.type === 'status') {
+              } else if (parsed.type === 'tool_complete' || parsed.type === 'status') {
                 // Skip these for now
               } else if (parsed.type === 'error') {
                 throw new Error(parsed.content);
@@ -210,7 +221,7 @@ const Chat = forwardRef(({ settings }, ref) => {
       }
 
       console.log('Fetching from NON-STREAMING:', `${settings.apiUrl}/api/chat`);
-      const apiUrl = process.env.NODE_ENV === 'production' ? '' : settings.apiUrl;
+      const apiUrl = settings.apiUrl;
       const response = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers,
@@ -307,6 +318,42 @@ const Chat = forwardRef(({ settings }, ref) => {
         {messages.map(message => {
           const messageContent = message.sender === 'bot' ? (
             <React.Fragment key={`content-${message.id}`}>
+              {/* Thinking Process Section */}
+              {message.thinking && message.thinking.length > 0 && (
+                <div className="thinking-process">
+                  <div className="thinking-header">🧠 AI Reasoning Process:</div>
+                  <div className="thinking-steps">
+                    {message.thinking.map((step, idx) => (
+                      <div key={idx} className="thinking-step">
+                        <span className="step-number">{idx + 1}.</span> {step}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tools Used Section */}
+              {message.tools && message.tools.length > 0 && (
+                <div className="tools-used">
+                  <div className="tools-header">🔧 Tools Used:</div>
+                  <div className="tools-list-display">
+                    {message.tools.map((tool, idx) => (
+                      <div key={idx} className="tool-item">
+                        <span className="tool-icon">⚙️</span>
+                        <span className="tool-name">{tool.name}</span>
+                        {tool.input && (
+                          <span className="tool-input" title={tool.input}>
+                            ({typeof tool.input === 'string' ? tool.input.substring(0, 50) : JSON.stringify(tool.input).substring(0, 50)}...)
+                          </span>
+                        )}
+                        <span className="tool-timestamp">{tool.timestamp}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Main Message Content */}
               {message.isThinking && !message.text ? (
                 <div className="thinking-dots">
                   <span></span>
@@ -317,6 +364,7 @@ const Chat = forwardRef(({ settings }, ref) => {
                 <EnhancedMarkdown
                   content={message.text}
                   isStreaming={isTyping && message.id === (messages[messages.length - 1]?.id)}
+                  autoRenderHtml={settings.autoRenderHtml}
                 />
               )}
               {message.isProcessing && (
@@ -336,7 +384,7 @@ const Chat = forwardRef(({ settings }, ref) => {
             <div key={message.id} className="system-message" data-type={message.messageType || 'status'}>
               <div className="system-message-content">
                 {message.messageType === 'tool_result' || message.messageType === 'tool_error' ? (
-                  <EnhancedMarkdown content={message.text} isStreaming={false} />
+                  <EnhancedMarkdown content={message.text} isStreaming={false} autoRenderHtml={settings.autoRenderHtml} />
                 ) : (
                   message.text
                 )}

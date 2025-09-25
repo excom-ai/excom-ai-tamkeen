@@ -24,6 +24,7 @@ IMAGE_TAG="latest"
 REACT_APP_AZURE_CLIENT_ID="3f8e0863-88f4-4dde-b4cf-44728ce39ba7"
 REACT_APP_AZURE_TENANT_ID="961673de-7f0e-40ff-af04-bf8853e979f2"
 REACT_APP_REDIRECT_URI="https://excom-ai-tamkeen-150270395888.me-central1.run.app"
+#REACT_APP_REDIRECT_URI=http://localhost:3000
 
 # Full image path
 FULL_IMAGE_PATH="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:${IMAGE_TAG}"

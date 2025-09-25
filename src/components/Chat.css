@@ -23,12 +23,13 @@
 .messages-area {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   min-height: 0;
-  max-height: calc(100vh - 200px);
+  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -36,7 +37,6 @@
   .messages-area {
     padding: 1rem;
     gap: 1rem;
-    max-height: calc(100vh - 240px);
   }
 }
 
@@ -657,4 +657,133 @@
 
 .enhanced-markdown p:last-child {
   margin-bottom: 0;
+}
+
+/* AI Reasoning Process Section */
+.thinking-process {
+  margin-bottom: 0.75rem;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  max-width: 90%;
+}
+
+.thinking-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(196, 181, 253, 0.9);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.thinking-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.thinking-step {
+  font-size: 0.8rem;
+  color: rgba(196, 181, 253, 0.8);
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.step-number {
+  color: rgba(139, 92, 246, 0.9);
+  font-weight: 600;
+  min-width: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* Tools Used Section */
+.tools-used {
+  margin-bottom: 0.75rem;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  max-width: 90%;
+}
+
+.tools-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(134, 239, 172, 0.9);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tools-list-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: rgba(134, 239, 172, 0.8);
+  line-height: 1.4;
+}
+
+.tool-icon {
+  color: rgba(34, 197, 94, 0.9);
+  flex-shrink: 0;
+}
+
+.tool-name {
+  font-weight: 500;
+  color: rgba(134, 239, 172, 0.9);
+}
+
+.tool-input {
+  color: rgba(134, 239, 172, 0.6);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 0.75rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-timestamp {
+  color: rgba(134, 239, 172, 0.5);
+  font-size: 0.7rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Mobile responsiveness for thinking and tools sections */
+@media (max-width: 768px) {
+  .thinking-process,
+  .tools-used {
+    max-width: 95%;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .thinking-header,
+  .tools-header {
+    font-size: 0.8rem;
+  }
+
+  .thinking-step,
+  .tool-item {
+    font-size: 0.75rem;
+  }
+
+  .tool-input {
+    max-width: 120px;
+    font-size: 0.7rem;
+  }
 }

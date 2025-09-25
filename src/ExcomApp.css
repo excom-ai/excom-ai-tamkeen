@@ -219,6 +219,30 @@
   color: white;
 }
 
+.html-toggle-btn {
+  padding: 0.4rem 0.6rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 0 0.3rem;
+}
+
+.html-toggle-btn.active {
+  background: rgba(40, 167, 69, 0.2);
+  border-color: rgba(40, 167, 69, 0.5);
+  color: #28a745;
+}
+
+.html-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
 .user-dropdown .logout-btn {
   width: 100%;
   padding: 0.5rem 1rem;
