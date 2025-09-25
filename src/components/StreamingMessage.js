@@ -16,15 +16,13 @@ const CompletedItems = memo(({ items }) => {
             </div>
           );
         } else if (item.type === 'tool_call') {
+          // Display tool calls as inline text, not as boxes
           return (
-            <div key={`tool-${item.timestamp}`} className="inline-tool-call">
-              <span className="tool-icon">🔧</span>
-              <span className="tool-name">{item.name}</span>
+            <div key={`tool-${item.timestamp}`} className="tool-inline-text">
+              <em>(Calling tool: {item.name})</em>
               {item.isProcessing && (
-                <span className="tool-processing">
-                  <span className="processing-dots">
-                    <span></span><span></span><span></span>
-                  </span>
+                <span className="processing-dots" style={{marginLeft: '5px'}}>
+                  <span>.</span><span>.</span><span>.</span>
                 </span>
               )}
             </div>
@@ -74,17 +72,27 @@ StreamingText.displayName = 'StreamingText';
 // Main streaming message component
 const StreamingMessage = memo(({ message, settings }) => {
   // New optimized rendering with separated streaming text
-  if (message.completedItems !== undefined || message.streamingText !== undefined) {
+  if (message.completedItems !== undefined || message.streamingText !== undefined || message.text) {
     return (
       <>
-        <CompletedItems items={message.completedItems} />
-        {(message.streamingText || message.text) && (
+        {/* Always render text first if it exists */}
+        {message.text && (
           <StreamingText
-            text={message.streamingText || message.text}
+            text={message.text}
+            isStreaming={false}
+            autoRenderHtml={settings.autoRenderHtml}
+          />
+        )}
+        {/* Then render streaming text if still streaming */}
+        {message.streamingText && !message.text && (
+          <StreamingText
+            text={message.streamingText}
             isStreaming={message.isStreaming}
             autoRenderHtml={settings.autoRenderHtml}
           />
         )}
+        {/* Finally render completed items (tool calls) after text */}
+        <CompletedItems items={message.completedItems} />
       </>
     );
   }

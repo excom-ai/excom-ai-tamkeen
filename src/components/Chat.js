@@ -130,33 +130,10 @@ const Chat = forwardRef(({ settings }, ref) => {
                     : msg
                 ));
               } else if (parsed.type === 'tool_call') {
-                // Add tool call
-                const toolInfo = {
-                  type: 'tool_call',
-                  name: parsed.tool || 'tool',
-                  input: parsed.tool_input || parsed.input,
-                  timestamp: Date.now(),
-                  isProcessing: true
-                };
-                completedItems.push(toolInfo);
-                setMessages(prev => prev.map(msg =>
-                  msg.id === botMessageId
-                    ? { ...msg, completedItems: [...completedItems] }
-                    : msg
-                ));
+                // Tool calls are now streamed as regular content, not as separate items
+                // Skip this type
               } else if (parsed.type === 'tool_result') {
-                // Mark the last tool call as completed
-                for (let i = completedItems.length - 1; i >= 0; i--) {
-                  if (completedItems[i].type === 'tool_call' && completedItems[i].isProcessing) {
-                    completedItems[i] = { ...completedItems[i], isProcessing: false };
-                    break;
-                  }
-                }
-                setMessages(prev => prev.map(msg =>
-                  msg.id === botMessageId
-                    ? { ...msg, completedItems: [...completedItems] }
-                    : msg
-                ));
+                // Tool results are now handled in the final response, skip this
               } else if (parsed.type === 'tool_complete' || parsed.type === 'status') {
                 // Skip these for now
               } else if (parsed.type === 'error') {

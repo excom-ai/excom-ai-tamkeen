@@ -34,6 +34,20 @@ class AIService:
         """Initialize the AI service with MCP tools."""
         self.system_prompt = """You are an intelligent AI assistant with access to Tamkeen's ticketing systems.
 
+        IMPORTANT: When asked about the current time, date, or anything time-related, you MUST use the get_current_time tool to get the actual current time. Do not guess or calculate times without first getting the real current time.
+
+        When responding to user requests:
+        1. Think through the task step by step - explain your approach naturally
+        2. Narrate what you're doing as you work through the problem
+        3. Share your reasoning and decision-making process
+        4. Be conversational - use phrases like:
+           - "Let me check that for you..."
+           - "I'll need to query the system to find..."
+           - "Based on what I found, I can see that..."
+           - "First, I'll look at... then I'll check..."
+        5. After using tools, explain what you found and what it means
+        6. Provide clear, structured answers with your findings
+
         You have access to the following tools:
         - Query and analyze Freshservice tickets (IT service desk tickets)
         - Query and analyze JIRA demands/issues
@@ -79,7 +93,7 @@ class AIService:
 
         self.llm = ChatAnthropic(
             model="claude-sonnet-4-20250514",  # Using Claude Sonnet 4
-            temperature=0.2,  # Balanced temperature for reasoning
+            temperature=0.0,  # Balanced temperature for reasoning
             anthropic_api_key=api_key,
             max_tokens=16384,  # Max output tokens for large responses
             max_retries=3,  # Number of retry attempts on failure
@@ -306,7 +320,32 @@ class AIService:
                 # Always append the response to maintain conversation flow
                 messages.append(response)
 
+                # Only stream conversational content if there are tool calls coming
+                # This shows the AI's "thinking out loud" BEFORE using tools
                 if hasattr(response, "tool_calls") and response.tool_calls:
+                    # Check if there's also content (the AI's explanation before tools)
+                    if hasattr(response, 'content') and response.content:
+                        content = response.content
+                        if isinstance(content, str) and content.strip():
+                            # Stream the pre-tool explanation
+                            for i in range(0, len(content), 3):
+                                chunk = content[i:i+3]
+                                yield json.dumps({'type': 'content', 'content': chunk})
+                                await asyncio.sleep(0.01)
+                            # Don't add extra newlines - let natural formatting handle it
+                        elif isinstance(content, list):
+                            for item in content:
+                                if isinstance(item, dict) and item.get('type') == 'text':
+                                    text = item.get('text', '')
+                                    if text.strip():
+                                        for i in range(0, len(text), 3):
+                                            chunk = text[i:i+3]
+                                            yield json.dumps({'type': 'content', 'content': chunk})
+                                            await asyncio.sleep(0.01)
+                            # Don't add extra newlines - let the AI's natural formatting handle it
+                            # Small delay to ensure text appears before tool calls
+                            await asyncio.sleep(0.3)
+
                     # Process tool calls
                     num_tools = len(response.tool_calls)
                     total_tools_called += num_tools
@@ -314,75 +353,10 @@ class AIService:
                     # Send reasoning about what we're about to do
                     tool_names = [tc.get('name') for tc in response.tool_calls]
 
-                    # Send detailed thinking process for EVERY round
-                    thinking_steps = []
+                    # Removed thinking steps per user request - only show tool calls
 
-                    if round == 0:
-                        # Initial analysis
-                        thinking_steps.append(f"Analyzing the user's request...")
-
-                        # Analyze what tools we're about to use and why
-                        if 'query_fresh_service_tickets' in tool_names and 'query_jira_demands' in tool_names:
-                            thinking_steps.extend([
-                                "The query requires data from both ticketing systems",
-                                "I'll query Freshservice for IT tickets and JIRA for project demands",
-                                "This will give me comprehensive data to analyze"
-                            ])
-                        elif 'query_fresh_service_tickets' in tool_names:
-                            thinking_steps.extend([
-                                "This query is focused on IT service desk tickets",
-                                "I'll use Freshservice data to provide accurate insights"
-                            ])
-                        elif 'query_jira_demands' in tool_names:
-                            thinking_steps.extend([
-                                "This query is about project demands or issues",
-                                "I'll analyze JIRA data to find relevant information"
-                            ])
-                        elif 'get_data_status' in tool_names:
-                            thinking_steps.append("I need to check the current status of our data sources")
-                    else:
-                        # Subsequent rounds - show reasoning about why we need more tools
-                        thinking_steps.append(f"Round {round + 1}: Analyzing results from previous tools...")
-                        thinking_steps.append(f"I need to execute {num_tools} more tool{'s' if num_tools > 1 else ''} to complete the analysis")
-
-                        # Add specific reasoning based on tool types
-                        if 'query_fresh_service_tickets' in tool_names:
-                            thinking_steps.append("Need additional Freshservice data to refine the analysis")
-                        if 'query_jira_demands' in tool_names:
-                            thinking_steps.append("Need additional JIRA data for complete picture")
-
-                    # Analyze SQL queries if present
-                    for tc in response.tool_calls:
-                        tool_args = tc.get('args', {})
-                        sql = tool_args.get('excomai_sql', '')
-                        if sql:
-                            if 'COUNT' in sql.upper():
-                                thinking_steps.append(f"Counting records: {sql[:100]}...")
-                            elif 'WHERE' in sql.upper():
-                                thinking_steps.append(f"Filtering with conditions: {sql[:100]}...")
-                            elif 'GROUP BY' in sql.upper():
-                                thinking_steps.append(f"Grouping data: {sql[:100]}...")
-                            else:
-                                thinking_steps.append(f"Querying: {sql[:100]}...")
-
-                    # Stream thinking steps
-                    for step in thinking_steps:
-                        yield json.dumps({
-                            'type': 'thinking',
-                            'content': step
-                        })
-                        await asyncio.sleep(0.05)
-
-                    # Brief transition message
-                    if round == 0:
-                        intro_text = "Let me execute these queries now...\n\n"
-                    else:
-                        intro_text = f"Executing additional queries...\n\n"
-
-                    for i in range(0, len(intro_text), 4):
-                        chunk = intro_text[i:i+4]
-                        yield json.dumps({'type': 'content', 'content': chunk})
-                        await asyncio.sleep(0.01)
+                    # Removed transition messages per user request
+                    # Previously showed "Let me execute these queries now..." messages
 
                     logger.info(f"\n🔧 Processing {num_tools} tool calls")
 
@@ -394,39 +368,12 @@ class AIService:
                         tool_args = tc.get('args')
                         logger.info(f"  Tool: {tool_name} with args: {tool_args}")
 
-                        # Create a descriptive message for each tool
-                        if tool_name == 'query_fresh_service_tickets':
-                            sql = tool_args.get('excomai_sql', '')
-                            if 'COUNT' in sql.upper():
-                                desc = "Counting Freshservice tickets"
-                            elif 'WHERE' in sql.upper():
-                                desc = "Filtering Freshservice tickets"
-                            else:
-                                desc = "Querying Freshservice tickets"
-                        elif tool_name == 'query_jira_demands':
-                            sql = tool_args.get('excomai_sql', '')
-                            if 'COUNT' in sql.upper():
-                                desc = "Counting JIRA demands"
-                            elif 'WHERE' in sql.upper():
-                                desc = "Filtering JIRA demands"
-                            else:
-                                desc = "Querying JIRA demands"
-                        elif tool_name == 'get_data_status':
-                            desc = "Checking data status"
-                        elif tool_name == 'force_refresh_fresh_service':
-                            desc = "Refreshing Freshservice data"
-                        elif tool_name == 'force_refresh_jira':
-                            desc = "Refreshing JIRA data"
-                        else:
-                            desc = f"Calling {tool_name}"
+                        # Convert snake_case to Title Case
+                        tool_display_name = ' '.join(word.capitalize() for word in tool_name.split('_'))
 
-                        # Send tool execution start
-                        yield json.dumps({
-                            'type': 'tool_call',
-                            'tool': tool_name,
-                            'args': tool_args,
-                            'content': f'📊 {desc}'
-                        })
+                        # Send tool call as inline HTML with styling
+                        tool_text = f'\n<span style="color: #666; font-style: italic; opacity: 0.8;">🔧 {tool_display_name}</span>\n'
+                        yield json.dumps({'type': 'content', 'content': tool_text})
 
                         # Execute this specific tool
                         try:
@@ -450,23 +397,12 @@ class AIService:
                         except:
                             pass
 
-                        # Send result immediately after execution
-                        yield json.dumps({
-                            'type': 'tool_result',
-                            'tool': tool_name,
-                            'result': result_str,  # Send full result
-                            'is_error': is_error,
-                            'content': f'{"❌" if is_error else "✅"} Result from {tool_name}'
-                        })
+                        # Don't send tool_result as a separate item - results will be in the final response
 
                         # Small delay between tools for better UX
                         await asyncio.sleep(0.2)
 
-                    # Send completion status for tools
-                    yield json.dumps({
-                        'type': 'tool_complete',
-                        'content': f'Processed {num_tools} tool{"s" if num_tools > 1 else ""}'
-                    })
+                    # Removed completion status per user request
 
                     # Don't add any status text - just continue to next round
 
@@ -479,17 +415,7 @@ class AIService:
                             )
                         )
 
-                    # Send thinking about what we learned from these tools
-                    post_tool_thinking = []
-                    post_tool_thinking.append(f"Processed {num_tools} tool{'s' if num_tools > 1 else ''} successfully")
-                    post_tool_thinking.append("Analyzing the results to determine next steps...")
-
-                    for step in post_tool_thinking:
-                        yield json.dumps({
-                            'type': 'thinking',
-                            'content': step
-                        })
-                        await asyncio.sleep(0.05)
+                    # Removed post-tool thinking per user request
 
                     # Continue to next round to get the final response from LLM
                     continue  # This will go back to the loop and get the final response
@@ -497,18 +423,7 @@ class AIService:
                     # No more tools - stream the final response using astream like excom-erp
                     logger.info(f"✨ Final response after {total_tools_called} tool calls")
 
-                    # Send final reasoning before streaming response
-                    if total_tools_called > 0:
-                        final_thinking = []
-                        final_thinking.append(f"Completed analysis with {total_tools_called} tool{'s' if total_tools_called > 1 else ''}")
-                        final_thinking.append("Now compiling the final response based on all the data collected...")
-
-                        for step in final_thinking:
-                            yield json.dumps({
-                                'type': 'thinking',
-                                'content': step
-                            })
-                            await asyncio.sleep(0.05)
+                    # Removed final reasoning per user request
 
                     # Remove the last AIMessage to get fresh streaming response
                     final_messages = messages[:-1]

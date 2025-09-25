@@ -395,6 +395,22 @@
   transition: all 0.2s ease;
 }
 
+.tool-inline-text {
+  display: block;
+  margin: 8px 0;
+  color: rgba(255, 255, 255, 0.4);  /* Darker - less opacity */
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+/* Apply italic styling to tool call text in messages */
+.message-content em {
+  font-style: italic;
+  color: rgba(150, 150, 150, 0.8);  /* Much darker gray color */
+  opacity: 0.6;  /* Even more dimming for subtlety */
+  font-size: 0.9em;  /* Slightly smaller */
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

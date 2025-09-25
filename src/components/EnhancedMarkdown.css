@@ -333,3 +333,16 @@ mark {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
 }
+
+/* Tool call notation styling */
+.enhanced-markdown .tool-call-notation {
+  color: #666 !important;
+  opacity: 0.7 !important;
+  font-size: 0.9em !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .enhanced-markdown .tool-call-notation {
+    color: #999 !important;
+  }
+}

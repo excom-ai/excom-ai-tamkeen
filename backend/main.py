@@ -27,7 +27,9 @@ allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLO
     "http://localhost:8000",
     "http://localhost:3050",
     "https://f2cd2ae2d84a.ngrok-free.app",
-    "http://localhost"
+    "http://localhost",
+    "https://excom-ai-tamkeen-hiknnn54gq-ww.a.run.app",
+    "https://excom-ai-tamkeen-150270395888.me-central1.run.app"
 ]
 
 app.add_middleware(
