@@ -7,6 +7,7 @@ from pandasql import sqldf
 from data.jira_issues import query_issues
 from logger_config import log_refresh_start, log_refresh_complete
 import os
+from datetime import datetime, timezone
 
 
 class JiraHandler:
@@ -112,8 +113,25 @@ class JiraHandler:
         """Get the current status of JIRA data."""
         with self.data_lock:
             record_count = len(self.data) if self.data is not None else 0
+            cache_file = "jira_issues_cache.parquet"
+
+            # Get file modification time
+            file_date = None
+            file_age_hours = None
+            if os.path.exists(cache_file):
+                try:
+                    file_stat = os.stat(cache_file)
+                    file_mtime = datetime.fromtimestamp(file_stat.st_mtime, timezone.utc)
+                    file_date = file_mtime.isoformat()
+                    # Calculate age in hours
+                    file_age_hours = (datetime.now(timezone.utc) - file_mtime).total_seconds() / 3600
+                except Exception as e:
+                    self.logger.warning(f"Could not get file date for {cache_file}: {e}")
+
             return {
                 "status": "available" if record_count > 0 else "no_data",
                 "record_count": record_count,
-                "cache_file": "jira_issues_cache.parquet"
+                "cache_file": cache_file,
+                "file_date": file_date,
+                "file_age_hours": round(file_age_hours, 2) if file_age_hours else None
             }
