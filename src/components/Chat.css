@@ -346,6 +346,101 @@
   }
 }
 
+/* Inline sequential display styles */
+.inline-thinking {
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  background: rgba(66, 153, 225, 0.1);
+  border-left: 3px solid #4299E1;
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.9em;
+  color: #AAA;
+}
+
+.think-icon {
+  font-size: 1.1em;
+  flex-shrink: 0;
+}
+
+.think-content {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.inline-tool-call {
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  background: rgba(72, 187, 120, 0.1);
+  border-left: 3px solid #48BB78;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9em;
+  color: #AAA;
+}
+
+.tool-icon {
+  font-size: 1.1em;
+  flex-shrink: 0;
+}
+
+.tool-name {
+  font-weight: 500;
+  color: #48BB78;
+}
+
+.tool-processing {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.tool-processing .processing-dots {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.tool-processing .processing-dots span {
+  width: 6px;
+  height: 6px;
+  background: #48BB78;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite;
+}
+
+.tool-processing .processing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.tool-processing .processing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+.inline-error {
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  background: rgba(245, 101, 101, 0.1);
+  border-left: 3px solid #F56565;
+  border-radius: 4px;
+  color: #F56565;
+  font-size: 0.9em;
+}
+
 /* Typing Indicator */
 .typing-indicator {
   display: flex;

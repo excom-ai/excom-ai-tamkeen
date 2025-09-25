@@ -50,8 +50,7 @@ const Chat = forwardRef(({ settings }, ref) => {
 
     const botMessageId = Date.now() + 1;
     let accumulatedText = '';
-    let thinkingProcess = [];
-    let allToolsUsed = [];
+    let messageContent = []; // Store all content pieces in order
 
     try {
       // Get auth token if available
@@ -84,15 +83,14 @@ const Chat = forwardRef(({ settings }, ref) => {
       const decoder = new TextDecoder();
       let buffer = '';
 
-      // Add initial empty bot message with thinking state
+      // Add initial empty bot message
       setMessages(prev => [...prev, {
         id: botMessageId,
-        text: '',
+        content: [], // Array to hold sequential content
+        text: '', // Keep for backward compatibility
         sender: 'bot',
         timestamp: new Date(),
-        isThinking: true,
-        thinking: [],
-        tools: []
+        isStreaming: true
       }]);
 
       while (true) {
@@ -115,51 +113,48 @@ const Chat = forwardRef(({ settings }, ref) => {
 
               if (parsed.type === 'content') {
                 accumulatedText += parsed.content;
+                // Add text content to the sequential array
+                messageContent.push({ type: 'text', content: accumulatedText, timestamp: Date.now() });
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, text: accumulatedText, isThinking: false, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
+                    ? { ...msg, content: [...messageContent], text: accumulatedText, isStreaming: true }
                     : msg
                 ));
-              } else if (parsed.type === 'thinking') {
-                // Capture thinking/reasoning steps
-                thinkingProcess.push(parsed.content);
+              } else if (parsed.type === 'thinking' || parsed.type === 'reasoning') {
+                // Add thinking/reasoning as a sequential item
+                messageContent.push({ type: 'thinking', content: parsed.content, timestamp: Date.now() });
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
+                    ? { ...msg, content: [...messageContent] }
                     : msg
                 ));
               } else if (parsed.type === 'tool_call') {
-                // Track tool usage
+                // Add tool call as a sequential item
                 const toolInfo = {
+                  type: 'tool_call',
                   name: parsed.tool || 'tool',
                   input: parsed.tool_input || parsed.input,
-                  timestamp: new Date().toLocaleTimeString()
+                  timestamp: Date.now(),
+                  isProcessing: true
                 };
-                allToolsUsed.push(toolInfo);
+                messageContent.push(toolInfo);
 
-                setIsProcessing(true);
-                setProcessingTool(toolInfo.name);
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, isProcessing: true, processingTool: toolInfo.name, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
+                    ? { ...msg, content: [...messageContent] }
                     : msg
                 ));
               } else if (parsed.type === 'tool_result') {
-                // Tool completed - stop processing indicator
-                setIsProcessing(false);
-                setProcessingTool('');
-
+                // Mark the last tool call as completed
+                for (let i = messageContent.length - 1; i >= 0; i--) {
+                  if (messageContent[i].type === 'tool_call' && messageContent[i].isProcessing) {
+                    messageContent[i].isProcessing = false;
+                    break;
+                  }
+                }
                 setMessages(prev => prev.map(msg =>
                   msg.id === botMessageId
-                    ? { ...msg, isProcessing: false, processingTool: '', thinking: [...thinkingProcess], tools: [...allToolsUsed] }
-                    : msg
-                ));
-              } else if (parsed.type === 'reasoning') {
-                // Capture reasoning as thinking step
-                thinkingProcess.push(parsed.content);
-                setMessages(prev => prev.map(msg =>
-                  msg.id === botMessageId
-                    ? { ...msg, thinking: [...thinkingProcess], tools: [...allToolsUsed] }
+                    ? { ...msg, content: [...messageContent] }
                     : msg
                 ));
               } else if (parsed.type === 'tool_complete' || parsed.type === 'status') {
@@ -167,9 +162,12 @@ const Chat = forwardRef(({ settings }, ref) => {
               } else if (parsed.type === 'error') {
                 throw new Error(parsed.content);
               } else if (parsed.type === 'done') {
-                // Stream complete - break out of all loops
-                setIsProcessing(false);
-                setProcessingTool('');
+                // Stream complete - mark as not streaming
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId
+                    ? { ...msg, isStreaming: false }
+                    : msg
+                ));
                 console.log('Stream completed - received done signal');
                 return; // Exit the entire streaming function
               }
@@ -187,17 +185,19 @@ const Chat = forwardRef(({ settings }, ref) => {
       if (error.name === 'AbortError') {
         const reason = error.cause || error.message;
         if (reason === 'user_stopped') {
+          messageContent.push({ type: 'text', content: '\n\n*[Generation stopped by user]*', timestamp: Date.now() });
           setMessages(prev => prev.map(msg =>
             msg.id === botMessageId
-              ? { ...msg, text: accumulatedText + '\n\n*[Generation stopped by user]*' }
+              ? { ...msg, content: [...messageContent], text: accumulatedText + '\n\n*[Generation stopped by user]*', isStreaming: false }
               : msg
           ));
         }
       } else {
         console.error('Stream error:', error);
+        messageContent.push({ type: 'error', content: 'Sorry, I encountered an error. Please try again.', timestamp: Date.now() });
         setMessages(prev => prev.map(msg =>
           msg.id === botMessageId
-            ? { ...msg, text: 'Sorry, I encountered an error. Please try again.', isError: true }
+            ? { ...msg, content: [...messageContent], text: 'Sorry, I encountered an error. Please try again.', isError: true, isStreaming: false }
             : msg
         ));
       }
@@ -316,69 +316,70 @@ const Chat = forwardRef(({ settings }, ref) => {
     <div className="chat-container">
       <div className="messages-area">
         {messages.map(message => {
-          const messageContent = message.sender === 'bot' ? (
-            <React.Fragment key={`content-${message.id}`}>
-              {/* Thinking Process Section */}
-              {message.thinking && message.thinking.length > 0 && (
-                <div className="thinking-process">
-                  <div className="thinking-header">🧠 AI Reasoning Process:</div>
-                  <div className="thinking-steps">
-                    {message.thinking.map((step, idx) => (
-                      <div key={idx} className="thinking-step">
-                        <span className="step-number">{idx + 1}.</span> {step}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+          const renderBotMessage = () => {
+            // For new sequential content format
+            if (message.content && Array.isArray(message.content)) {
+              let currentText = '';
+              return (
+                <React.Fragment key={`content-${message.id}`}>
+                  {message.content.map((item, idx) => {
+                    if (item.type === 'text') {
+                      currentText = item.content;
+                      // Only render the last text item to avoid duplication
+                      const isLastText = !message.content.slice(idx + 1).some(i => i.type === 'text');
+                      return isLastText ? (
+                        <EnhancedMarkdown
+                          key={`text-${idx}`}
+                          content={currentText}
+                          isStreaming={message.isStreaming && idx === message.content.length - 1}
+                          autoRenderHtml={settings.autoRenderHtml}
+                        />
+                      ) : null;
+                    } else if (item.type === 'thinking') {
+                      return (
+                        <div key={`think-${idx}`} className="inline-thinking">
+                          <span className="think-icon">🤔</span>
+                          <span className="think-content">{item.content}</span>
+                        </div>
+                      );
+                    } else if (item.type === 'tool_call') {
+                      return (
+                        <div key={`tool-${idx}`} className="inline-tool-call">
+                          <span className="tool-icon">🔧</span>
+                          <span className="tool-name">{item.name}</span>
+                          {item.isProcessing && (
+                            <span className="tool-processing">
+                              <span className="processing-dots">
+                                <span></span><span></span><span></span>
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    } else if (item.type === 'error') {
+                      return (
+                        <div key={`error-${idx}`} className="inline-error">
+                          {item.content}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </React.Fragment>
+              );
+            }
 
-              {/* Tools Used Section */}
-              {message.tools && message.tools.length > 0 && (
-                <div className="tools-used">
-                  <div className="tools-header">🔧 Tools Used:</div>
-                  <div className="tools-list-display">
-                    {message.tools.map((tool, idx) => (
-                      <div key={idx} className="tool-item">
-                        <span className="tool-icon">⚙️</span>
-                        <span className="tool-name">{tool.name}</span>
-                        {tool.input && (
-                          <span className="tool-input" title={tool.input}>
-                            ({typeof tool.input === 'string' ? tool.input.substring(0, 50) : JSON.stringify(tool.input).substring(0, 50)}...)
-                          </span>
-                        )}
-                        <span className="tool-timestamp">{tool.timestamp}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            // Fallback for old format (backward compatibility)
+            return (
+              <EnhancedMarkdown
+                content={message.text}
+                isStreaming={isTyping && message.id === (messages[messages.length - 1]?.id)}
+                autoRenderHtml={settings.autoRenderHtml}
+              />
+            );
+          };
 
-              {/* Main Message Content */}
-              {message.isThinking && !message.text ? (
-                <div className="thinking-dots">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              ) : (
-                <EnhancedMarkdown
-                  content={message.text}
-                  isStreaming={isTyping && message.id === (messages[messages.length - 1]?.id)}
-                  autoRenderHtml={settings.autoRenderHtml}
-                />
-              )}
-              {message.isProcessing && (
-                <div className="processing-indicator">
-                  <span className="processing-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </span>
-                  <span className="processing-text">Processing {message.processingTool || 'tool'}...</span>
-                </div>
-              )}
-            </React.Fragment>
-          ) : message.text;
+          const messageContent = message.sender === 'bot' ? renderBotMessage() : message.text;
 
           return message.sender === 'system' ? (
             <div key={message.id} className="system-message" data-type={message.messageType || 'status'}>
