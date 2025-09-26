@@ -174,7 +174,7 @@ class AIService:
             messages = [SystemMessage(content=self.system_prompt)]
 
             if conversation_history:
-                for msg in conversation_history[-10:]:  # Last 10 messages for context
+                for msg in conversation_history[-5:]:  # Reduced to last 5 messages for faster processing
                     if msg.get("sender") == "user":
                         messages.append(HumanMessage(content=msg.get("text", "")))
                     elif msg.get("sender") == "bot":
@@ -261,7 +261,7 @@ class AIService:
                                             yield json.dumps({'type': 'content', 'content': item.get('text', '')})
                                         elif isinstance(item, str):
                                             yield json.dumps({'type': 'content', 'content': item})
-                                await asyncio.sleep(0.01)  # Small delay for smooth streaming
+                                await asyncio.sleep(0.005)  # Faster streaming  # Small delay for smooth streaming
                     except AttributeError:
                         # Fallback if astream not available
                         output = response.content
@@ -331,7 +331,7 @@ class AIService:
                             for i in range(0, len(content), 3):
                                 chunk = content[i:i+3]
                                 yield json.dumps({'type': 'content', 'content': chunk})
-                                await asyncio.sleep(0.01)
+                                await asyncio.sleep(0.005)  # Faster streaming
                             # Don't add extra newlines - let natural formatting handle it
                         elif isinstance(content, list):
                             for item in content:
@@ -341,7 +341,7 @@ class AIService:
                                         for i in range(0, len(text), 3):
                                             chunk = text[i:i+3]
                                             yield json.dumps({'type': 'content', 'content': chunk})
-                                            await asyncio.sleep(0.01)
+                                            await asyncio.sleep(0.005)  # Faster streaming
                             # Don't add extra newlines - let the AI's natural formatting handle it
                             # Small delay to ensure text appears before tool calls
                             await asyncio.sleep(0.3)
@@ -420,13 +420,51 @@ class AIService:
                     # Continue to next round to get the final response from LLM
                     continue  # This will go back to the loop and get the final response
                 else:
-                    # No more tools - stream the final response using astream like excom-erp
+                    # No more tools - stream the final response
                     logger.info(f"✨ Final response after {total_tools_called} tool calls")
 
-                    # Removed final reasoning per user request
+                    # First check if the current response already has content to stream
+                    if hasattr(response, 'content') and response.content:
+                        content = response.content
 
-                    # Remove the last AIMessage to get fresh streaming response
-                    final_messages = messages[:-1]
+                        # Stream existing content immediately without making another AI call
+                        if isinstance(content, str) and content.strip():
+                            logger.info("Streaming existing response content...")
+                            # Stream in larger chunks for faster output
+                            chunk_size = 20
+                            for i in range(0, len(content), chunk_size):
+                                chunk = content[i:i+chunk_size]
+                                yield json.dumps({'type': 'content', 'content': chunk})
+                                await asyncio.sleep(0.002)  # Faster streaming
+                            yield json.dumps({'type': 'done'})
+                            break
+                        elif isinstance(content, list):
+                            logger.info("Streaming existing response content from list...")
+                            for item in content:
+                                if isinstance(item, dict) and item.get('type') == 'text':
+                                    text = item.get('text', '')
+                                    if text.strip():
+                                        chunk_size = 20
+                                        for i in range(0, len(text), chunk_size):
+                                            chunk = text[i:i+chunk_size]
+                                            yield json.dumps({'type': 'content', 'content': chunk})
+                                            await asyncio.sleep(0.002)
+                            yield json.dumps({'type': 'done'})
+                            break
+
+                    # Only make a new AI call if no content exists
+                    logger.info("No existing content, making final AI call...")
+
+                    # Add a progress indicator
+                    yield json.dumps({'type': 'content', 'content': '\n\n'})
+
+                    # Limit context for faster response - only keep essential messages
+                    final_messages = [messages[0]]  # System prompt
+                    # Add only the last 2 exchanges plus current
+                    if len(messages) > 5:
+                        final_messages.extend(messages[-5:])
+                    else:
+                        final_messages.extend(messages[1:])
 
                     try:
                         # Use astream for real-time character-by-character streaming
@@ -446,8 +484,8 @@ class AIService:
                                                 continue
                                         elif isinstance(item, str):
                                             yield json.dumps({'type': 'content', 'content': item})
-                                # Small delay for smooth streaming effect
-                                await asyncio.sleep(0.005)
+                                # Reduced delay for faster streaming
+                                await asyncio.sleep(0.002)
                     except (AttributeError, Exception) as e:
                         logger.warning(f"astream not available or failed: {e}, falling back to chunked streaming")
                         # Fallback to chunked streaming if astream not available
@@ -462,18 +500,18 @@ class AIService:
                                         for i in range(0, len(text_content), 10):
                                             chunk = text_content[i:i+10]
                                             yield json.dumps({"type": "content", "content": chunk})
-                                            await asyncio.sleep(0.01)
+                                            await asyncio.sleep(0.005)  # Faster streaming
                                 elif isinstance(block, str):
                                     if block:
                                         for i in range(0, len(block), 10):
                                             chunk = block[i:i+10]
                                             yield json.dumps({"type": "content", "content": chunk})
-                                            await asyncio.sleep(0.01)
+                                            await asyncio.sleep(0.005)  # Faster streaming
                         elif isinstance(final_content, str) and final_content:
                             for i in range(0, len(final_content), 10):
                                 chunk = final_content[i:i+10]
                                 yield json.dumps({"type": "content", "content": chunk})
-                                await asyncio.sleep(0.01)
+                                await asyncio.sleep(0.005)  # Faster streaming
                         else:
                             yield json.dumps({"type": "content", "content": str(final_content)})
 
@@ -498,7 +536,7 @@ class AIService:
                         for i in range(0, len(final_content), chunk_size):
                             chunk = final_content[i:i+chunk_size]
                             yield json.dumps({"type": "content", "content": chunk})
-                            await asyncio.sleep(0.01)
+                            await asyncio.sleep(0.005)  # Faster streaming
                     else:
                         yield json.dumps({"type": "content", "content": str(final_content)})
                 except Exception as e:
